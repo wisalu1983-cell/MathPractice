@@ -192,6 +192,58 @@ function App() {
       if (userManager.currentUser) {
         setCurrentView('history');
       }
+    } else if (action === 'exportData') {
+      // 导出数据
+      const exportData = {
+        users: userManager.users,
+        history: userManager.currentUser 
+          ? historyManager.getUserRecords(userManager.currentUser.id)
+          : []
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `math-practice-data-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else if (action === 'importData') {
+      // 创建文件输入元素
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target?.result as string);
+              // 验证数据格式
+              if (data.users && Array.isArray(data.users)) {
+                // 恢复用户数据
+                localStorage.setItem('users', JSON.stringify(data.users));
+                // 恢复历史记录
+                if (data.history && Array.isArray(data.history)) {
+                  localStorage.setItem('historyRecords', JSON.stringify(data.history));
+                }
+                // 刷新页面以加载新数据
+                window.location.reload();
+              } else {
+                alert('导入的数据格式不正确');
+              }
+            } catch (error) {
+              console.error('导入数据错误:', error);
+              alert('导入数据时发生错误');
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+      input.click();
     } else {
       setShowUserModal(true);
     }

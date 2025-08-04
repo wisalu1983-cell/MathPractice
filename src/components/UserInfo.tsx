@@ -83,6 +83,20 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                     <span className="mr-3">🔄</span>
                     切换用户
                   </button>
+                  <button
+                    onClick={() => handleActionClick('exportData')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">💾</span>
+                    导出数据
+                  </button>
+                  <button
+                    onClick={() => handleActionClick('importData')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">📥</span>
+                    导入数据
+                  </button>
                   {isDeveloper && onGenerateTestData && (
                     <button
                       onClick={() => {
