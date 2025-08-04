@@ -16,5 +16,9 @@ export default defineConfig(({ command }) => {
     optimizeDeps: {
       exclude: ['lucide-react'],
     },
+    build: {
+      outDir: 'docs',
+      emptyOutDir: true, // 构建前清空输出目录
+    },
   };
 });
