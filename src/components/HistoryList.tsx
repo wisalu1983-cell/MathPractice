@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, Target, Calendar, ArrowLeft, Trophy, BarChart3, User, ChevronDown, X } from 'lucide-react';
 import { HistoryRecord, User as UserType, ProblemType, Difficulty } from '../types';
 
@@ -18,6 +18,12 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
+  const [filterLastNDays, setFilterLastNDays] = useState<string>('');
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()); // 0-11
+  const [selectedStartDate, setSelectedStartDate] = useState<string>(''); // YYYY-MM-DD
+  const [selectedEndDate, setSelectedEndDate] = useState<string>(''); // YYYY-MM-DD
 
   const getTypeName = (type: string) => ({
     'mental': '口算',
@@ -59,14 +65,131 @@ export const HistoryList: React.FC<HistoryListProps> = ({
     return date.toLocaleDateString('zh-CN');
   };
 
-  // 筛选记录
-  const filteredRecords = useMemo(() => {
-    return records.filter(record => {
+  const toStartOfDay = (dateStr: string) => new Date(`${dateStr}T00:00:00`).getTime();
+  const toEndOfDay = (dateStr: string) => new Date(`${dateStr}T23:59:59.999`).getTime();
+
+  const resetDateFilter = () => {
+    setSelectedStartDate('');
+    setSelectedEndDate('');
+    setFilterLastNDays('');
+  };
+
+  const formatYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const todayYmd = useMemo(() => formatYMD(new Date()), []);
+
+  const getMonthDays = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const firstWeekday = firstDay.getDay(); // 0 Sun - 6 Sat
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days: Array<{ date: Date; ymd: string }> = [];
+    // Fill leading blanks from prev month
+    for (let i = 0; i < firstWeekday; i += 1) {
+      const d = new Date(year, month, 1 - (firstWeekday - i));
+      days.push({ date: d, ymd: formatYMD(d) });
+    }
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d += 1) {
+      const date = new Date(year, month, d);
+      days.push({ date, ymd: formatYMD(date) });
+    }
+    // Fill trailing blanks to complete 6 rows * 7 cols = 42 cells
+    while (days.length % 7 !== 0 || days.length < 42) {
+      const last = days[days.length - 1].date;
+      const next = new Date(last);
+      next.setDate(last.getDate() + 1);
+      days.push({ date: next, ymd: formatYMD(next) });
+    }
+    return days;
+  };
+
+  const isSameDay = (a: string, b: string) => a && b && a === b;
+  const isInRange = (ymd: string, start: string, end: string) => {
+    if (!start || !end) return false;
+    return toStartOfDay(ymd) >= toStartOfDay(start) && toEndOfDay(ymd) <= toEndOfDay(end);
+  };
+
+  // 预先根据题型/难度过滤，用于日历标记
+  const typeDiffFiltered = useMemo(() => {
+    return records.filter((record) => {
       const typeMatch = selectedType === 'all' || record.problemType === selectedType;
       const difficultyMatch = selectedDifficulty === 'all' || record.difficulty === selectedDifficulty;
       return typeMatch && difficultyMatch;
     });
   }, [records, selectedType, selectedDifficulty]);
+
+  const dateHasRecordsSet = useMemo(() => {
+    const set = new Set<string>();
+    typeDiffFiltered.forEach((r) => {
+      set.add(formatYMD(new Date(r.date)));
+    });
+    return set;
+  }, [typeDiffFiltered]);
+
+  // 当输入了“过去N天”或手动输入了范围，自动同步高亮到日历（selectedStartDate/selectedEndDate）
+  useEffect(() => {
+    const n = parseInt(filterLastNDays, 10);
+    if (!isNaN(n) && n > 0) {
+      const now = new Date();
+      const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - (n - 1));
+
+      const startYmd = formatYMD(startDate);
+      const endYmd = formatYMD(endDate);
+      if (selectedStartDate !== startYmd || selectedEndDate !== endYmd) {
+        setSelectedStartDate(startYmd);
+        setSelectedEndDate(endYmd);
+        // 确保日历面板跳到包含起点的月份，增强可视反馈
+        setCalendarYear(startDate.getFullYear());
+        setCalendarMonth(startDate.getMonth());
+      }
+      return;
+    }
+
+    // 若“过去N天”为空，但手动输入了范围，保持日历显示在起点月份
+    if (selectedStartDate && selectedEndDate) {
+      const start = new Date(selectedStartDate);
+      setCalendarYear(start.getFullYear());
+      setCalendarMonth(start.getMonth());
+    }
+  }, [filterLastNDays, selectedStartDate, selectedEndDate]);
+
+  // 筛选记录
+  const filteredRecords = useMemo(() => {
+    return typeDiffFiltered.filter((record) => {
+      let dateMatch = true;
+
+      // 过去N天
+      const n = parseInt(filterLastNDays, 10);
+      if (!isNaN(n) && n > 0) {
+        const now = new Date();
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate.setDate(startDate.getDate() - (n - 1));
+        const start = startDate.getTime();
+        dateMatch = record.date >= start && record.date <= end;
+      }
+
+      // 单日 or 范围
+      if (selectedStartDate && !selectedEndDate) {
+        const start = toStartOfDay(selectedStartDate);
+        const end = toEndOfDay(selectedStartDate);
+        dateMatch = dateMatch && record.date >= start && record.date <= end;
+      } else if (selectedStartDate && selectedEndDate) {
+        const start = toStartOfDay(selectedStartDate);
+        const end = toEndOfDay(selectedEndDate);
+        dateMatch = dateMatch && record.date >= start && record.date <= end;
+      }
+
+      return dateMatch;
+    });
+  }, [typeDiffFiltered, filterLastNDays, selectedStartDate, selectedEndDate]);
 
   // 用于统计的记录（选中的记录或所有记录）
   const recordsForStats = useMemo(() => {
@@ -236,11 +359,156 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                   <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
 
+                {/* 日期筛选（按钮+内联日历） */}
+                <button
+                  onClick={() => setShowCalendar((v) => !v)}
+                  className="px-4 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  按日期筛选
+                </button>
+
+                {/* 重置日期 */}
+                <button
+                  onClick={resetDateFilter}
+                  className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors duration-200 flex items-center"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  重置日期
+                </button>
+
                 {/* 显示筛选结果数量 */}
                 <div className="text-sm text-gray-600">
                   共 {filteredRecords.length} 条记录
                 </div>
               </div>
+
+              {/* 内联日历 */}
+              {showCalendar && (
+                <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                  {/* 顶部范围输入 */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      type="date"
+                      value={selectedStartDate}
+                      onChange={(e) => { setSelectedStartDate(e.target.value); setFilterLastNDays(''); }}
+                      className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <span className="text-gray-500 text-sm">至</span>
+                    <input
+                      type="date"
+                      value={selectedEndDate}
+                      onChange={(e) => { setSelectedEndDate(e.target.value); setFilterLastNDays(''); }}
+                      className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {/* 过去N天快捷输入（移动到顶部输入区） */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="过去N天"
+                        value={filterLastNDays}
+                        onChange={(e) => setFilterLastNDays(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-24 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <span className="text-gray-500 text-sm">天（含今天）</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedStartDate('');
+                        setSelectedEndDate('');
+                      }}
+                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg"
+                    >
+                      清除选择
+                    </button>
+                  </div>
+
+                  {/* 月份导航 */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                      onClick={() => {
+                        const prev = new Date(calendarYear, calendarMonth, 1);
+                        prev.setMonth(prev.getMonth() - 1);
+                        setCalendarYear(prev.getFullYear());
+                        setCalendarMonth(prev.getMonth());
+                      }}
+                    >
+                      上个月
+                    </button>
+                    <div className="text-sm text-gray-700 font-medium">
+                      {calendarYear} 年 {calendarMonth + 1} 月
+                    </div>
+                    <button
+                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                      onClick={() => {
+                        const next = new Date(calendarYear, calendarMonth, 1);
+                        next.setMonth(next.getMonth() + 1);
+                        setCalendarYear(next.getFullYear());
+                        setCalendarMonth(next.getMonth());
+                      }}
+                    >
+                      下个月
+                    </button>
+                  </div>
+
+                  {/* 星期标题 */}
+                  <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500">
+                    {['日','一','二','三','四','五','六'].map((w) => (
+                      <div key={w} className="py-1">周{w}</div>
+                    ))}
+                  </div>
+
+                  {/* 日期网格 */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {getMonthDays(calendarYear, calendarMonth).map(({ date, ymd }, idx) => {
+                      const isCurrentMonth = date.getMonth() === calendarMonth;
+                      const hasRecords = dateHasRecordsSet.has(ymd);
+                      const isSelectedStart = isSameDay(ymd, selectedStartDate);
+                      const isSelectedEnd = isSameDay(ymd, selectedEndDate);
+                      const inRange = isInRange(ymd, selectedStartDate, selectedEndDate);
+                      const isToday = ymd === todayYmd;
+                      const baseClasses = `text-sm rounded-lg py-2 text-center select-none ${isCurrentMonth ? '' : 'opacity-40'}`;
+                      const colorClasses = hasRecords ? 'text-gray-800' : 'text-gray-400';
+                      const selectedClasses = isSelectedStart || isSelectedEnd ? 'bg-blue-500 text-white' : inRange ? 'bg-blue-100 text-blue-700' : '';
+                      return (
+                        <button
+                          key={ymd + idx}
+                          disabled={false}
+                          onClick={() => {
+                            // 若通过日历选择，清空“过去N天”以避免冲突
+                            if (filterLastNDays) setFilterLastNDays('');
+                            if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+                              setSelectedStartDate(ymd);
+                              setSelectedEndDate('');
+                            } else if (selectedStartDate && !selectedEndDate) {
+                              if (toStartOfDay(ymd) < toStartOfDay(selectedStartDate)) {
+                                setSelectedStartDate(ymd);
+                              } else if (toStartOfDay(ymd) === toStartOfDay(selectedStartDate)) {
+                                // 单击同一天，视为选择单日
+                                setSelectedEndDate('');
+                              } else {
+                                setSelectedEndDate(ymd);
+                              }
+                            }
+                          }}
+                          className={`${baseClasses} ${colorClasses} ${selectedClasses} hover:bg-gray-100`}
+                          title={ymd}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className={`${isToday && !(isSelectedStart || isSelectedEnd || inRange) ? 'w-7 h-7 flex items-center justify-center rounded-full border-2 border-blue-500' : ''}`}>
+                              {date.getDate()}
+                            </span>
+                            {hasRecords && (
+                              <span className="mt-1 h-1 w-5 rounded-full bg-blue-200" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* 选择操作按钮 */}
               <div className="flex items-center gap-3">
