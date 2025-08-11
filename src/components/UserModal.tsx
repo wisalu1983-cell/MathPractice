@@ -93,12 +93,10 @@ export const UserModal: React.FC<UserModalProps> = ({
       // 查找开发者账号
       const devUser = users.find(user => user.isDeveloper);
       if (devUser) {
+        // 允许本次会话内登录开发者，但不会被自动持久化为默认登录（启动时会被清理）
         const success = onLoginUser(devUser.id);
-        if (success) {
-          handleClose();
-        } else {
-          setError('开发者账号登录失败');
-        }
+        if (success) handleClose();
+        else setError('开发者账号登录失败');
       } else {
         setError('开发者账号不存在');
       }

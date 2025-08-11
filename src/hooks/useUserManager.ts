@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { User, UserManager } from '../types';
 import { useLocalStorage } from './useLocalStorage';
 
@@ -32,22 +32,24 @@ export const useUserManager = () => {
     }
   }, [userManager.users, setUserManager]);
 
-  // 启动时的健壮性修正：
-  // 1) 如果 currentUser 不在 users 列表中，则重置为未登录（Guest）
-  // 2) 若 currentUser 是开发者且从未登录过（lastLoginAt === 0），不应默认处于登录状态
+  // 启动时一次性校正：不允许开发者账号持久登录；
+  // 若本地持久化中 currentUser 为开发者，或不在用户列表中，则重置为未登录（Guest）。
+  const sanitizedOnMountRef = useRef(false);
   useEffect(() => {
+    if (sanitizedOnMountRef.current) return;
+    sanitizedOnMountRef.current = true;
+
     const current = userManager.currentUser;
+    const users = userManager.users;
     if (!current) return;
 
-    const existsInList = userManager.users.some(u => u.id === current.id);
-    const shouldLogout = !existsInList || (current.isDeveloper === true && current.lastLoginAt === 0);
+    const existsInList = users.some(u => u.id === current.id);
+    const shouldLogout = !existsInList || current.isDeveloper === true;
     if (shouldLogout) {
-      setUserManager(prev => ({
-        ...prev,
-        currentUser: null
-      }));
+      setUserManager(prev => ({ ...prev, currentUser: null }));
     }
-  }, [userManager.currentUser, userManager.users, setUserManager]);
+    // 仅在首次挂载时校正，避免影响会话期内手动登录开发者
+  }, [setUserManager]);
 
   // 创建新用户
   const createUser = useCallback((name: string): User | null => {
