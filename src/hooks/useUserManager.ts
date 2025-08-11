@@ -32,6 +32,23 @@ export const useUserManager = () => {
     }
   }, [userManager.users, setUserManager]);
 
+  // 启动时的健壮性修正：
+  // 1) 如果 currentUser 不在 users 列表中，则重置为未登录（Guest）
+  // 2) 若 currentUser 是开发者且从未登录过（lastLoginAt === 0），不应默认处于登录状态
+  useEffect(() => {
+    const current = userManager.currentUser;
+    if (!current) return;
+
+    const existsInList = userManager.users.some(u => u.id === current.id);
+    const shouldLogout = !existsInList || (current.isDeveloper === true && current.lastLoginAt === 0);
+    if (shouldLogout) {
+      setUserManager(prev => ({
+        ...prev,
+        currentUser: null
+      }));
+    }
+  }, [userManager.currentUser, userManager.users, setUserManager]);
+
   // 创建新用户
   const createUser = useCallback((name: string): User | null => {
     if (!name.trim()) return null;
