@@ -200,7 +200,7 @@ export const useHistoryManager = () => {
     getUserStats,
     // 未完成记录相关
     incompleteHistoryRecords,
-    upsertIncompleteRecord: (session: GameSession, userId: string) => {
+    upsertIncompleteRecord: (session: GameSession, userId: string, overrideDate?: number) => {
       if (!userId || !session.isActive || session.isCompleted) return false;
       if (!session.problemType || !session.difficulty) return false;
 
@@ -213,7 +213,7 @@ export const useHistoryManager = () => {
       const totalTime = session.answerTimes.filter(t => typeof t === 'number').reduce((s, t) => s + (t || 0), 0);
       const averageTime = answeredCount > 0 ? Math.round(totalTime / answeredCount) : 0;
 
-      const now = Date.now();
+      const now = typeof overrideDate === 'number' ? overrideDate : Date.now();
       const record: IncompleteHistoryRecord = {
         id: session.sessionId || `${userId}_${now}`,
         sessionId: session.sessionId || `${userId}_${now}`,

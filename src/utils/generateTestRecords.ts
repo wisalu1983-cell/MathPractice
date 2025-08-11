@@ -198,3 +198,172 @@ export const generateTestRecords = async (
   // 批量保存所有记录
   return saveRecords(allSessions, userId);
 };
+
+// 生成一个“未完成”的模拟答题记录
+const generateMockIncompleteSession = (
+  problemType: ProblemType,
+  difficulty: Difficulty,
+  correctRate: number,
+  averageTimePerQuestion: number,
+  recordDate: Date,
+  sessionId: string
+): GameSession => {
+  const problems = generateProblems(problemType, difficulty);
+  const totalProblems = problems.length;
+
+  // 答过的题数：至少1道，最多 totalProblems - 1 道
+  const answeredCount = Math.max(1, Math.min(totalProblems - 1, Math.floor(totalProblems * (0.3 + Math.random() * 0.5))));
+
+  const answers: (string | number)[] = new Array(totalProblems);
+  const answerTimes: number[] = new Array(totalProblems);
+  const problemStartTimes: number[] = [];
+
+  const totalTimeForAnswered = answeredCount * averageTimePerQuestion;
+  const startTime = recordDate.getTime() - totalTimeForAnswered * 1000;
+
+  let correctAnswers = 0;
+
+  for (let index = 0; index < answeredCount; index++) {
+    const problem = problems[index];
+    const shouldBeCorrect = Math.random() < correctRate;
+
+    if (shouldBeCorrect) {
+      if (problem.isMultipleChoice) {
+        answers[index] = problem.correctChoice!;
+      } else if (problem.isDivision) {
+        if (problem.remainder === 0) {
+          answers[index] = problem.quotient!.toString();
+        } else {
+          answers[index] = `${problem.quotient}……${problem.remainder}`;
+        }
+      } else {
+        answers[index] = problem.answer;
+      }
+      correctAnswers += 1;
+    } else {
+      if (problem.isMultipleChoice) {
+        const wrongChoice = (problem.correctChoice! + 1) % (problem.choices?.length || 4);
+        answers[index] = wrongChoice;
+      } else if (problem.isDivision) {
+        answers[index] = `${(problem.quotient || 0) + 1}……${problem.remainder || 0}`;
+      } else {
+        const numericAnswer = typeof problem.answer === 'number' 
+          ? problem.answer 
+          : parseInt(problem.answer.toString());
+        answers[index] = numericAnswer + (Math.random() < 0.5 ? 1 : -1);
+      }
+    }
+
+    const variance = averageTimePerQuestion * 0.3;
+    const timeSpent = Math.max(1, Math.round(averageTimePerQuestion + (Math.random() * variance * 2 - variance)));
+    answerTimes[index] = timeSpent;
+
+    const problemStartTime = startTime + index * averageTimePerQuestion * 1000;
+    problemStartTimes.push(problemStartTime);
+  }
+
+  const timeSpent = answerTimes.filter((t) => typeof t === 'number').reduce((s, t) => s + (t || 0), 0);
+  const score = correctAnswers * 10;
+
+  return {
+    problems,
+    currentProblem: problems[Math.max(0, answeredCount - 1)] || null,
+    currentIndex: Math.max(0, answeredCount - 1),
+    answers,
+    answerTimes,
+    score,
+    totalProblems,
+    correctAnswers,
+    isActive: true,
+    isCompleted: false,
+    sessionId,
+    startTime,
+    // 无 endTime（未完成）
+    problemType,
+    difficulty,
+    problemStartTimes,
+  };
+};
+
+// 生成一组“未完成”的测试记录（与完成记录保持相同的日期分布：从今天起每天2条）
+export const generateIncompleteTestRecords = async (
+  userId: string,
+  recordsPerType: number = 10,
+  onProgress?: (current: number, total: number, currentType: string, currentDifficulty: string) => void
+) => {
+  const problemTypes: ProblemType[] = ['mental', 'written', 'mixed', 'properties'];
+  const allSessions: { session: GameSession; scheduledDate: Date }[] = [];
+  const totalRecords = problemTypes.length * recordsPerType;
+  let generatedCount = 0;
+
+  for (let typeIndex = 0; typeIndex < problemTypes.length; typeIndex++) {
+    const type = problemTypes[typeIndex];
+
+    let basicRemaining = Math.ceil(recordsPerType / 2);
+    let challengeRemaining = recordsPerType - basicRemaining;
+    const daysNeeded = Math.ceil(recordsPerType / 2);
+
+    const makeTime = (baseDate: Date, hour: number, minuteJitter: number) => {
+      const d = new Date(baseDate);
+      const minuteOffset = Math.floor((Math.random() - 0.5) * minuteJitter);
+      d.setHours(hour, Math.max(0, Math.min(59, 30 + minuteOffset)), Math.floor(Math.random() * 60), Math.floor(Math.random() * 1000));
+      return d;
+    };
+
+    for (let dayIndex = 0; dayIndex < daysNeeded; dayIndex++) {
+      const baseDate = new Date();
+      baseDate.setHours(0, 0, 0, 0);
+      baseDate.setDate(baseDate.getDate() - dayIndex);
+
+      if (basicRemaining > 0) {
+        onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '基础难度');
+        const correctRate = 0.5 + (Math.random() * 0.5);
+        let averageTime;
+        switch (type) {
+          case 'mental':
+            averageTime = 5 + Math.random() * 8;
+            break;
+          case 'written':
+            averageTime = 12 + Math.random() * 13;
+            break;
+          default:
+            averageTime = 8 + Math.random() * 10;
+        }
+        const date1 = makeTime(baseDate, 10, 20);
+        const sessionId1 = `${type}_basic_${date1.getTime()}_${Math.random().toString(36).slice(2,6)}`;
+        const session1 = generateMockIncompleteSession(type, 'basic', correctRate, averageTime, date1, sessionId1);
+        allSessions.push({ session: session1, scheduledDate: date1 });
+        basicRemaining--;
+        generatedCount++;
+        await new Promise(resolve => setTimeout(resolve, 20 + Math.random() * 40));
+      }
+
+      if (challengeRemaining > 0 && generatedCount < (typeIndex + 1) * recordsPerType) {
+        onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '挑战难度');
+        const correctRate = 0.3 + (Math.random() * 0.6);
+        let averageTime;
+        switch (type) {
+          case 'mental':
+            averageTime = 8 + Math.random() * 12;
+            break;
+          case 'written':
+            averageTime = 15 + Math.random() * 20;
+            break;
+          default:
+            averageTime = 12 + Math.random() * 13;
+        }
+        const date2 = makeTime(baseDate, 18, 20);
+        const sessionId2 = `${type}_challenge_${date2.getTime()}_${Math.random().toString(36).slice(2,6)}`;
+        const session2 = generateMockIncompleteSession(type, 'challenge', correctRate, averageTime, date2, sessionId2);
+        allSessions.push({ session: session2, scheduledDate: date2 });
+        challengeRemaining--;
+        generatedCount++;
+        await new Promise(resolve => setTimeout(resolve, 20 + Math.random() * 40));
+      }
+    }
+  }
+
+  // 返回供调用方保存的会话及其计划日期
+  // 由调用方逐条调用 upsertIncompleteRecord(session, userId, scheduledDate.getTime())
+  return allSessions;
+};

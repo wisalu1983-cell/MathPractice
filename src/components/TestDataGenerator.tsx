@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Database, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
-import { generateTestRecords } from '../utils/generateTestRecords';
+import { generateTestRecords, generateIncompleteTestRecords } from '../utils/generateTestRecords';
 import type { GameSession } from '../types';
 
 interface TestDataGeneratorProps {
@@ -10,6 +10,8 @@ interface TestDataGeneratorProps {
   saveRecords: (sessions: GameSession[], userId: string) => string[];
   refreshRecords: () => boolean;
   clearUserRecords: (userId: string) => boolean;
+  upsertIncompleteRecord: (session: GameSession, userId: string, overrideDate?: number) => boolean;
+  clearUserIncompleteRecords: (userId: string) => boolean;
 }
 
 export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
@@ -18,7 +20,9 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
   currentUserId,
   saveRecords,
   refreshRecords,
-  clearUserRecords
+  clearUserRecords,
+  upsertIncompleteRecord,
+  clearUserIncompleteRecords
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
@@ -27,6 +31,7 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
   const [totalProgress, setTotalProgress] = useState(0);
   const [currentType, setCurrentType] = useState('');
   const [currentDifficulty, setCurrentDifficulty] = useState('');
+  const [generateIncomplete, setGenerateIncomplete] = useState(false);
 
   const handleGenerate = async () => {
     if (!currentUserId) {
@@ -42,30 +47,52 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
     setCurrentDifficulty('');
 
     try {
-      // 使用带进度回调的生成方法
-      const recordIds = await generateTestRecords(
-        currentUserId,
-        saveRecords,
-        recordsPerType,
-        (current, total, type, difficulty) => {
-          setProgress(current);
-          setTotalProgress(total);
-          setCurrentType(type);
-          setCurrentDifficulty(difficulty);
+      if (!generateIncomplete) {
+        // 生成“已完成”记录
+        const recordIds = await generateTestRecords(
+          currentUserId,
+          saveRecords,
+          recordsPerType,
+          (current, total, type, difficulty) => {
+            setProgress(current);
+            setTotalProgress(total);
+            setCurrentType(type);
+            setCurrentDifficulty(difficulty);
+          }
+        );
+        await new Promise(resolve => setTimeout(resolve, 100));
+        refreshRecords();
+        setMessage(`测试数据生成完成！共生成了${recordIds.length}条记录（每种题型${recordsPerType}条）`);
+        setProgress(0);
+        setCurrentType('');
+        setCurrentDifficulty('');
+      } else {
+        // 生成“未完成”记录
+        const all = await generateIncompleteTestRecords(
+          currentUserId,
+          recordsPerType,
+          (current, total, type, difficulty) => {
+            setProgress(current);
+            setTotalProgress(total);
+            setCurrentType(type);
+            setCurrentDifficulty(difficulty);
+          }
+        );
+
+        let generatedCount = 0;
+        for (const item of all) {
+          upsertIncompleteRecord(item.session, currentUserId, item.scheduledDate.getTime());
+          generatedCount += 1;
+          setProgress(generatedCount);
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
-      );
-      
-      // 等待一下确保数据写入localStorage
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 强制刷新历史记录
-      refreshRecords();
-      
-      setMessage(`测试数据生成完成！共生成了${recordIds.length}条记录（每种题型${recordsPerType}条）`);
-      
-      setProgress(0);
-      setCurrentType('');
-      setCurrentDifficulty('');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        refreshRecords();
+        setMessage(`未完成记录生成完成！共生成了${generatedCount}条记录（每种题型${recordsPerType}条）`);
+        setProgress(0);
+        setCurrentType('');
+        setCurrentDifficulty('');
+      }
     } catch (error) {
       console.error('生成测试数据错误:', error);
       setMessage('生成测试数据时发生错误：' + error);
@@ -83,11 +110,18 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
       return;
     }
 
-    if (window.confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
-      clearUserRecords(currentUserId);
-      // 立即强制刷新
-      refreshRecords();
-      setMessage('历史记录已清空');
+    if (!generateIncomplete) {
+      if (window.confirm('确定要清空所有“已完成”历史记录吗？此操作不可恢复。')) {
+        clearUserRecords(currentUserId);
+        refreshRecords();
+        setMessage('已完成的历史记录已清空');
+      }
+    } else {
+      if (window.confirm('确定要清空所有“未完成”进度吗？此操作不可恢复。')) {
+        clearUserIncompleteRecords(currentUserId);
+        refreshRecords();
+        setMessage('未完成的记录已清空');
+      }
     }
   };
 
@@ -133,7 +167,11 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
                 <li>基础和挑战两种难度</li>
                 <li>不同的正确率（30%-100%）</li>
                 <li>合理的答题时间分布</li>
-                <li>从今天起共{Math.ceil(recordsPerType / 2)}天，每天2条（基础+挑战）</li>
+                {!generateIncomplete ? (
+                  <li>从今天起共{Math.ceil(recordsPerType / 2)}天，每天2条（基础+挑战）</li>
+                ) : (
+                  <li>生成未完成记录，显示在未完成进度列表中</li>
+                )}
               </ul>
             </p>
           </div>
@@ -155,6 +193,21 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
           <p className="text-xs text-gray-500 mt-1">
             建议范围：1-30条（总记录数将是这个数字的4倍）
           </p>
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">{generateIncomplete ? '生成未完成记录' : '生成已完成记录'}</span>
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={generateIncomplete}
+                onChange={(e) => setGenerateIncomplete(e.target.checked)}
+              />
+              <div className="relative w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-blue-500 transition-colors">
+                <div className={`absolute top-[2px] left-[2px] h-5 w-5 rounded-full bg-white border border-gray-300 transition-all ${generateIncomplete ? 'translate-x-5' : ''}`}></div>
+              </div>
+              <span className="ml-3 text-sm text-gray-600">{generateIncomplete ? '未完成' : '已完成'}</span>
+            </label>
+          </div>
         </div>
 
         {/* 进度显示 */}

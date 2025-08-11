@@ -501,6 +501,8 @@ function App() {
           saveRecords={historyManager.saveRecords}
           refreshRecords={historyManager.refreshRecords}
           clearUserRecords={historyManager.clearUserRecords}
+          upsertIncompleteRecord={historyManager.upsertIncompleteRecord}
+          clearUserIncompleteRecords={historyManager.clearUserIncompleteRecords}
         />
       </div>
     </div>
