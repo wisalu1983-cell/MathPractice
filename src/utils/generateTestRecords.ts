@@ -153,8 +153,22 @@ export const generateTestRecords = async (
           default:
             averageTime = 8 + Math.random() * 10; // 8-18秒
         }
-
         const date1 = makeTime(10, 20);
+        // 若是“今天”，并且计划时间在当前时间之后，则把时间钳制到当前时间之前，避免显示成“ -1天前”
+        if (dayIndex === 0) {
+          const now = Date.now();
+          if (date1.getTime() > now) {
+            const minutes = 30 + Math.floor(Math.random() * 20);
+            const adjusted = new Date(now - minutes * 60 * 1000);
+            const midnight = new Date();
+            midnight.setHours(0, 0, 0, 0);
+            if (adjusted.getTime() < midnight.getTime()) {
+              date1.setTime(midnight.getTime() + 60 * 1000);
+            } else {
+              date1.setTime(adjusted.getTime());
+            }
+          }
+        }
         const session1 = generateMockSession(type, 'basic', correctRate, averageTime, date1);
         allSessions.push(session1);
         basicRemaining--;
@@ -178,8 +192,21 @@ export const generateTestRecords = async (
           default:
             averageTime = 12 + Math.random() * 13; // 12-25秒
         }
-
         const date2 = makeTime(18, 20);
+        if (dayIndex === 0) {
+          const now = Date.now();
+          if (date2.getTime() > now) {
+            const minutes = 5 + Math.floor(Math.random() * 20);
+            const adjusted = new Date(now - minutes * 60 * 1000);
+            const midnight = new Date();
+            midnight.setHours(0, 0, 0, 0);
+            if (adjusted.getTime() < midnight.getTime()) {
+              date2.setTime(midnight.getTime() + 2 * 60 * 1000);
+            } else {
+              date2.setTime(adjusted.getTime());
+            }
+          }
+        }
         const session2 = generateMockSession(type, 'challenge', correctRate, averageTime, date2);
         allSessions.push(session2);
         challengeRemaining--;

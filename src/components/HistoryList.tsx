@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Clock, Target, Calendar, ArrowLeft, Trophy, BarChart3, User, ChevronDown, X } from 'lucide-react';
 import { HistoryRecord, IncompleteHistoryRecord, User as UserType } from '../types';
 
@@ -27,6 +27,23 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   const [selectedStartDate, setSelectedStartDate] = useState<string>(''); // YYYY-MM-DD
   const [selectedEndDate, setSelectedEndDate] = useState<string>(''); // YYYY-MM-DD
   const [showIncomplete, setShowIncomplete] = useState<boolean>(false);
+  const userToggledRef = useRef(false);
+  const autoSwitchedOnceRef = useRef(false);
+
+  // 若“已完成记录为空但存在未完成记录”，首次进入或数据变化时自动切换到显示未完成记录
+  useEffect(() => {
+    // 初次进入且仅有未完成记录时，自动切换到“显示未完成记录”一次
+    if (
+      !autoSwitchedOnceRef.current &&
+      !userToggledRef.current &&
+      !showIncomplete &&
+      records.length === 0 &&
+      incompleteRecords.length > 0
+    ) {
+      setShowIncomplete(true);
+      autoSwitchedOnceRef.current = true;
+    }
+  }, [records.length, incompleteRecords.length, showIncomplete]);
 
   // 将未完成记录映射为用于展示/统计的结构
   const mappedIncomplete: HistoryRecord[] = useMemo(() => {
@@ -325,12 +342,47 @@ export const HistoryList: React.FC<HistoryListProps> = ({
           </div>
         </div>
 
+        {/* 全局切换“显示未完成记录”开关：无论是否有记录都展示 */}
+        <div className="mb-4 flex items-center justify-end">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showIncomplete}
+              onChange={(e) => { userToggledRef.current = true; setSelectedRecords(new Set()); setShowIncomplete(e.target.checked); }}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            显示未完成记录
+          </label>
+        </div>
+
         {displayRecords.length === 0 ? (
           /* 空状态 */
           <div className="text-center py-12">
             <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">{showIncomplete ? '暂无未完成记录' : '暂无练习记录'}</h3>
-            <p className="text-gray-500">{showIncomplete ? '答题时会自动保存未完成进度' : '开始你的第一次练习吧！'}</p>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+              {showIncomplete
+                ? '当前没有未完成的答题记录'
+                : (incompleteRecords.length > 0 ? '当前没有已完成的答题记录' : '暂无练习记录')}
+            </h3>
+            <div className="text-gray-500">
+              {showIncomplete ? (
+                <p>答题时会自动保存未完成进度</p>
+              ) : (
+                incompleteRecords.length > 0 ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p>你目前有未完成记录，可切换查看。</p>
+                    <button
+                      onClick={() => setShowIncomplete(true)}
+                      className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                    >
+                      查看未完成记录
+                    </button>
+                  </div>
+                ) : (
+                  <p>开始你的第一次练习吧！</p>
+                )
+              )}
+            </div>
           </div>
         ) : (
           <>
@@ -416,7 +468,11 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                   <input
                     type="checkbox"
                     checked={showIncomplete}
-                    onChange={(e) => { setSelectedRecords(new Set()); setShowIncomplete(e.target.checked); }}
+                    onChange={(e) => {
+                      userToggledRef.current = true;
+                      setSelectedRecords(new Set());
+                      setShowIncomplete(e.target.checked);
+                    }}
                     className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
                   显示未完成记录
