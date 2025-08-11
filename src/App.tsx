@@ -335,11 +335,19 @@ function App() {
         );
 
       case 'history':
-        return userManager.currentUser && (
+        const historyUser = online.user
+          ? {
+              id: online.user.id,
+              name: online.user.email || 'Online User',
+              createdAt: Date.now(),
+              lastLoginAt: Date.now(),
+            }
+          : userManager.currentUser;
+        return historyUser && (
           <HistoryList
-            user={userManager.currentUser}
-            records={historyManager.getUserRecords(userManager.currentUser.id)}
-            incompleteRecords={historyManager.getUserIncompleteRecords(userManager.currentUser.id)}
+            user={historyUser}
+            records={historyManager.getUserRecords(historyUser.id)}
+            incompleteRecords={historyManager.getUserIncompleteRecords(historyUser.id)}
             onBack={handleBackFromHistoryList}
             onViewRecord={handleViewHistoryRecord}
           />
