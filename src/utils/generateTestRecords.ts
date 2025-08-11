@@ -109,80 +109,83 @@ export const generateTestRecords = async (
   const allSessions: GameSession[] = [];
   const totalRecords = problemTypes.length * recordsPerType;
   let generatedCount = 0;
-  
+
+  // 以“从今天开始，每天2条（基础+挑战）”的时间规则生成
   // 对每种题型生成指定数量的记录
   for (let typeIndex = 0; typeIndex < problemTypes.length; typeIndex++) {
     const type = problemTypes[typeIndex];
-    // 确保基础和挑战难度的题目数量大致相等
-    const basicCount = Math.ceil(recordsPerType / 2);
-    const challengeCount = recordsPerType - basicCount;
 
-    // 生成基础难度的记录
-    for (let i = 0; i < basicCount; i++) {
-      // 更新进度
-      onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '基础难度');
-      
-      // 生成一个0.5到1.0之间的正确率（基础难度正确率较高）
-      const correctRate = 0.5 + (Math.random() * 0.5);
-      
-      // 生成平均答题时间
-      let averageTime;
-      switch (type) {
-        case 'mental':
-          averageTime = 5 + Math.random() * 8; // 5-13秒
-          break;
-        case 'written':
-          averageTime = 12 + Math.random() * 13; // 12-25秒
-          break;
-        default:
-          averageTime = 8 + Math.random() * 10; // 8-18秒
+    // 基础与挑战数量（向上取整，保证总数 = recordsPerType）
+    let basicRemaining = Math.ceil(recordsPerType / 2);
+    let challengeRemaining = recordsPerType - basicRemaining;
+
+    // 需要的天数：每天最多2条
+    const daysNeeded = Math.ceil(recordsPerType / 2);
+
+    // 按天生成：第0天为今天，1为昨天...
+    for (let dayIndex = 0; dayIndex < daysNeeded; dayIndex++) {
+      // 计算当天的日期（本地时区），并固定两个时间段：10:00 与 18:00
+      const baseDate = new Date();
+      baseDate.setHours(0, 0, 0, 0);
+      baseDate.setDate(baseDate.getDate() - dayIndex);
+
+      const makeTime = (hour: number, minuteJitter: number) => {
+        const d = new Date(baseDate);
+        // 在目标小时附近加入轻微抖动，避免完全相同
+        const minuteOffset = Math.floor((Math.random() - 0.5) * minuteJitter);
+        d.setHours(hour, Math.max(0, Math.min(59, 30 + minuteOffset)), Math.floor(Math.random() * 60), Math.floor(Math.random() * 1000));
+        return d;
+      };
+
+      // 当天第1条：优先基础
+      if (basicRemaining > 0) {
+        onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '基础难度');
+
+        const correctRate = 0.5 + (Math.random() * 0.5);
+        let averageTime;
+        switch (type) {
+          case 'mental':
+            averageTime = 5 + Math.random() * 8; // 5-13秒
+            break;
+          case 'written':
+            averageTime = 12 + Math.random() * 13; // 12-25秒
+            break;
+          default:
+            averageTime = 8 + Math.random() * 10; // 8-18秒
+        }
+
+        const date1 = makeTime(10, 20);
+        const session1 = generateMockSession(type, 'basic', correctRate, averageTime, date1);
+        allSessions.push(session1);
+        basicRemaining--;
+        generatedCount++;
+        await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 60));
       }
 
-      // 为每条记录生成一个随机的日期（分布在最近的时间范围内）
-      const delay = Math.floor(Math.random() * 1000) + 500;
-      const dayOffset = typeIndex * recordsPerType + i; // 确保不同题型的记录时间错开
-      const dummyDate = new Date(Date.now() - dayOffset * 12 * 60 * 60 * 1000 - delay); // 每12小时一条记录
-      
-      const session = generateMockSession(type, 'basic', correctRate, averageTime, dummyDate);
-      allSessions.push(session);
-      generatedCount++;
-      
-      // 模拟异步生成过程
-      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
-    }
+      // 当天第2条：优先挑战
+      if (challengeRemaining > 0 && generatedCount < (typeIndex + 1) * recordsPerType) {
+        onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '挑战难度');
 
-    // 生成挑战难度的记录
-    for (let i = 0; i < challengeCount; i++) {
-      // 更新进度
-      onProgress?.(generatedCount, totalRecords, getTypeNameInChinese(type), '挑战难度');
-      
-      // 生成一个0.3到0.9之间的正确率（挑战难度正确率较低）
-      const correctRate = 0.3 + (Math.random() * 0.6);
-      
-      // 生成平均答题时间（挑战难度用时较长）
-      let averageTime;
-      switch (type) {
-        case 'mental':
-          averageTime = 8 + Math.random() * 12; // 8-20秒
-          break;
-        case 'written':
-          averageTime = 15 + Math.random() * 20; // 15-35秒
-          break;
-        default:
-          averageTime = 12 + Math.random() * 13; // 12-25秒
+        const correctRate = 0.3 + (Math.random() * 0.6);
+        let averageTime;
+        switch (type) {
+          case 'mental':
+            averageTime = 8 + Math.random() * 12; // 8-20秒
+            break;
+          case 'written':
+            averageTime = 15 + Math.random() * 20; // 15-35秒
+            break;
+          default:
+            averageTime = 12 + Math.random() * 13; // 12-25秒
+        }
+
+        const date2 = makeTime(18, 20);
+        const session2 = generateMockSession(type, 'challenge', correctRate, averageTime, date2);
+        allSessions.push(session2);
+        challengeRemaining--;
+        generatedCount++;
+        await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 60));
       }
-
-      // 为每条记录生成一个随机的日期（错开基础难度的时间）
-      const delay = Math.floor(Math.random() * 1000) + 500;
-      const dayOffset = typeIndex * recordsPerType + basicCount + i;
-      const dummyDate = new Date(Date.now() - dayOffset * 12 * 60 * 60 * 1000 - delay);
-      
-      const session = generateMockSession(type, 'challenge', correctRate, averageTime, dummyDate);
-      allSessions.push(session);
-      generatedCount++;
-      
-      // 模拟异步生成过程
-      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
     }
   }
 

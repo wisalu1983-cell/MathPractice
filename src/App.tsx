@@ -497,6 +497,10 @@ function App() {
         <TestDataGenerator
           isOpen={showTestGenerator}
           onClose={() => setShowTestGenerator(false)}
+          currentUserId={userManager.currentUser?.id || null}
+          saveRecords={historyManager.saveRecords}
+          refreshRecords={historyManager.refreshRecords}
+          clearUserRecords={historyManager.clearUserRecords}
         />
       </div>
     </div>

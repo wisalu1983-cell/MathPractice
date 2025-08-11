@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import { X, Database, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useUserManager } from '../hooks/useUserManager';
-import { useHistoryManager } from '../hooks/useHistoryManager';
 import { generateTestRecords } from '../utils/generateTestRecords';
+import type { GameSession } from '../types';
 
 interface TestDataGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
+  currentUserId: string | null;
+  saveRecords: (sessions: GameSession[], userId: string) => string[];
+  refreshRecords: () => boolean;
+  clearUserRecords: (userId: string) => boolean;
 }
 
 export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
   isOpen,
-  onClose
+  onClose,
+  currentUserId,
+  saveRecords,
+  refreshRecords,
+  clearUserRecords
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
@@ -20,11 +27,9 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
   const [totalProgress, setTotalProgress] = useState(0);
   const [currentType, setCurrentType] = useState('');
   const [currentDifficulty, setCurrentDifficulty] = useState('');
-  const userManager = useUserManager();
-  const historyManager = useHistoryManager();
 
   const handleGenerate = async () => {
-    if (!userManager.currentUser) {
+    if (!currentUserId) {
       setMessage('错误：请先登录用户');
       return;
     }
@@ -39,8 +44,8 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
     try {
       // 使用带进度回调的生成方法
       const recordIds = await generateTestRecords(
-        userManager.currentUser.id,
-        historyManager.saveRecords,
+        currentUserId,
+        saveRecords,
         recordsPerType,
         (current, total, type, difficulty) => {
           setProgress(current);
@@ -54,7 +59,7 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // 强制刷新历史记录
-      historyManager.refreshRecords();
+      refreshRecords();
       
       setMessage(`测试数据生成完成！共生成了${recordIds.length}条记录（每种题型${recordsPerType}条）`);
       
@@ -73,21 +78,21 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
   };
 
   const handleClearRecords = () => {
-    if (!userManager.currentUser) {
+    if (!currentUserId) {
       setMessage('错误：请先登录用户');
       return;
     }
 
     if (window.confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
-      historyManager.clearUserRecords(userManager.currentUser.id);
+      clearUserRecords(currentUserId);
       // 立即强制刷新
-      historyManager.refreshRecords();
+      refreshRecords();
       setMessage('历史记录已清空');
     }
   };
 
   const handleRefreshRecords = () => {
-    historyManager.refreshRecords();
+    refreshRecords();
     setMessage('历史记录已刷新');
   };
 
@@ -128,7 +133,7 @@ export const TestDataGenerator: React.FC<TestDataGeneratorProps> = ({
                 <li>基础和挑战两种难度</li>
                 <li>不同的正确率（30%-100%）</li>
                 <li>合理的答题时间分布</li>
-                <li>记录时间跨度为近{recordsPerType}天</li>
+                <li>从今天起共{Math.ceil(recordsPerType / 2)}天，每天2条（基础+挑战）</li>
               </ul>
             </p>
           </div>
