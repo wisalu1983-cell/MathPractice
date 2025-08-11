@@ -24,6 +24,7 @@ const initialSession: GameSession = {
   correctAnswers: 0,
   isActive: false,
   isCompleted: false,
+  sessionId: '',
   startTime: 0,
   problemStartTimes: [],
 };
@@ -55,9 +56,30 @@ function App() {
     }
   }, [session.isCompleted, isRecordSaved, userManager.currentUser, currentView, historyManager]);
 
+  // 自动周期性保存未完成进度（更可靠），以及在关闭/刷新页面时保存一次
+  useEffect(() => {
+    if (!session.isActive || session.isCompleted || !userManager.currentUser) return;
+
+    const userId = userManager.currentUser.id;
+    const intervalId = window.setInterval(() => {
+      historyManager.upsertIncompleteRecord(session, userId);
+    }, 10000); // 每10秒一次
+
+    const handleBeforeUnload = () => {
+      historyManager.upsertIncompleteRecord(session, userId);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [session.isActive, session.isCompleted, session.sessionId, userManager.currentUser, historyManager, session]);
+
   const startGame = () => {
     const problems = generateProblems(selectedType, selectedDifficulty);
     const currentTime = Date.now();
+    const sessionId = `${currentTime}_${Math.random().toString(36).slice(2, 8)}`;
     const newSession: GameSession = {
       ...initialSession,
       problems,
@@ -65,6 +87,7 @@ function App() {
       totalProblems: problems.length,
       isActive: true,
       startTime: currentTime,
+      sessionId,
       problemType: selectedType,
       difficulty: selectedDifficulty,
       problemStartTimes: [currentTime],
@@ -114,14 +137,20 @@ function App() {
     
     const newAnswerTimes = [...session.answerTimes];
     newAnswerTimes[session.currentIndex] = timeSpent;
-    
-    setSession(prev => ({
-      ...prev,
+
+    const updatedSession: GameSession = {
+      ...session,
       answers: newAnswers,
       answerTimes: newAnswerTimes,
-      correctAnswers: prev.correctAnswers + (correct ? 1 : 0),
-      score: prev.score + (correct ? 10 : 0),
-    }));
+      correctAnswers: session.correctAnswers + (correct ? 1 : 0),
+      score: session.score + (correct ? 10 : 0),
+    };
+
+    setSession(updatedSession);
+    // 增量保存未完成记录快照
+    if (userManager.currentUser) {
+      historyManager.upsertIncompleteRecord(updatedSession, userManager.currentUser.id);
+    }
   };
 
   const nextProblem = () => {
@@ -165,6 +194,7 @@ function App() {
   const restartSameGame = () => {
     const problems = generateProblems(selectedType, selectedDifficulty);
     const currentTime = Date.now();
+    const sessionId = `${currentTime}_${Math.random().toString(36).slice(2, 8)}`;
     const newSession: GameSession = {
       ...initialSession,
       problems,
@@ -172,6 +202,7 @@ function App() {
       totalProblems: problems.length,
       isActive: true,
       startTime: currentTime,
+      sessionId,
       problemType: selectedType,
       difficulty: selectedDifficulty,
       problemStartTimes: [currentTime],
@@ -308,6 +339,7 @@ function App() {
       correctAnswers: record.correctAnswers,
       isActive: false,
       isCompleted: true,
+      sessionId: `history_${record.id}`,
       startTime: record.date - record.totalTime * 1000,
       endTime: record.date,
       problemType: record.problemType,
@@ -373,6 +405,7 @@ function App() {
           <HistoryList
             user={userManager.currentUser}
             records={historyManager.getUserRecords(userManager.currentUser.id)}
+            incompleteRecords={historyManager.getUserIncompleteRecords(userManager.currentUser.id)}
             onBack={handleBackFromHistoryList}
             onViewRecord={handleViewHistoryRecord}
           />

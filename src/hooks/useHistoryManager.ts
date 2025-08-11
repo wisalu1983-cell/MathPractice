@@ -1,9 +1,10 @@
 import { useCallback, useState, useEffect } from 'react';
-import { HistoryRecord, GameSession } from '../types';
+import { HistoryRecord, GameSession, IncompleteHistoryRecord } from '../types';
 import { useLocalStorage } from './useLocalStorage';
 
 export const useHistoryManager = () => {
   const [historyRecords, setHistoryRecords] = useLocalStorage<HistoryRecord[]>('historyRecords', []);
+  const [incompleteHistoryRecords, setIncompleteHistoryRecords] = useLocalStorage<IncompleteHistoryRecord[]>('incompleteHistoryRecords', []);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 监听refreshTrigger变化，强制重新读取localStorage
@@ -18,8 +19,18 @@ export const useHistoryManager = () => {
           console.error('Failed to refresh history records:', error);
         }
       }
+
+      const storedIncomplete = localStorage.getItem('incompleteHistoryRecords');
+      if (storedIncomplete) {
+        try {
+          const parsedIncomplete = JSON.parse(storedIncomplete);
+          setIncompleteHistoryRecords(parsedIncomplete);
+        } catch (error) {
+          console.error('Failed to refresh incomplete history records:', error);
+        }
+      }
     }
-  }, [refreshTrigger, setHistoryRecords]);
+  }, [refreshTrigger, setHistoryRecords, setIncompleteHistoryRecords]);
 
   // 保存单条答题记录
   const saveRecord = useCallback((session: GameSession, userId: string): string => {
@@ -55,8 +66,12 @@ export const useHistoryManager = () => {
     };
 
     setHistoryRecords(prev => [record, ...prev]);
+    // 保存完成记录后，清除对应未完成记录
+    if (session.sessionId) {
+      setIncompleteHistoryRecords(prev => prev.filter(r => r.sessionId !== session.sessionId));
+    }
     return record.id;
-  }, [setHistoryRecords]);
+  }, [setHistoryRecords, setIncompleteHistoryRecords]);
 
   // 批量保存记录
   const saveRecords = useCallback((sessions: GameSession[], userId: string): string[] => {
@@ -182,6 +197,65 @@ export const useHistoryManager = () => {
     getRecordById,
     deleteRecord,
     clearUserRecords,
-    getUserStats
+    getUserStats,
+    // 未完成记录相关
+    incompleteHistoryRecords,
+    upsertIncompleteRecord: (session: GameSession, userId: string) => {
+      if (!userId || !session.isActive || session.isCompleted) return false;
+      if (!session.problemType || !session.difficulty) return false;
+
+      // 统计已作答数量与时间
+      const answeredCount = session.answers.filter(a => a !== undefined).length;
+      const correctAnswers = session.correctAnswers;
+      const accuracy = session.totalProblems > 0 && answeredCount > 0
+        ? Math.round((correctAnswers / answeredCount) * 100)
+        : 0;
+      const totalTime = session.answerTimes.filter(t => typeof t === 'number').reduce((s, t) => s + (t || 0), 0);
+      const averageTime = answeredCount > 0 ? Math.round(totalTime / answeredCount) : 0;
+
+      const now = Date.now();
+      const record: IncompleteHistoryRecord = {
+        id: session.sessionId || `${userId}_${now}`,
+        sessionId: session.sessionId || `${userId}_${now}`,
+        userId,
+        date: now,
+        problemType: session.problemType,
+        difficulty: session.difficulty,
+        totalProblems: answeredCount,
+        correctAnswers,
+        accuracy,
+        totalTime,
+        averageTime,
+        problems: session.problems,
+        answers: session.answers,
+        answerTimes: session.answerTimes,
+        score: session.score,
+        plannedTotalProblems: session.totalProblems
+      };
+
+      setIncompleteHistoryRecords(prev => {
+        const idx = prev.findIndex(r => r.sessionId === record.sessionId && r.userId === userId);
+        if (idx >= 0) {
+          const cloned = prev.slice();
+          cloned[idx] = record;
+          return cloned;
+        }
+        return [record, ...prev];
+      });
+      return true;
+    },
+    getUserIncompleteRecords: (userId: string): IncompleteHistoryRecord[] => {
+      return incompleteHistoryRecords
+        .filter(r => r.userId === userId)
+        .sort((a, b) => b.date - a.date);
+    },
+    removeIncompleteBySession: (sessionId: string) => {
+      setIncompleteHistoryRecords(prev => prev.filter(r => r.sessionId !== sessionId));
+      return true;
+    },
+    clearUserIncompleteRecords: (userId: string) => {
+      setIncompleteHistoryRecords(prev => prev.filter(r => r.userId !== userId));
+      return true;
+    }
   };
 };

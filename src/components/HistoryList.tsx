@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, Target, Calendar, ArrowLeft, Trophy, BarChart3, User, ChevronDown, X } from 'lucide-react';
-import { HistoryRecord, User as UserType, ProblemType, Difficulty } from '../types';
+import { HistoryRecord, IncompleteHistoryRecord, User as UserType } from '../types';
 
 interface HistoryListProps {
   user: UserType;
   records: HistoryRecord[];
+  incompleteRecords: IncompleteHistoryRecord[];
   onBack: () => void;
   onViewRecord: (record: HistoryRecord) => void;
 }
@@ -12,6 +13,7 @@ interface HistoryListProps {
 export const HistoryList: React.FC<HistoryListProps> = ({
   user,
   records,
+  incompleteRecords,
   onBack,
   onViewRecord
 }) => {
@@ -24,6 +26,29 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()); // 0-11
   const [selectedStartDate, setSelectedStartDate] = useState<string>(''); // YYYY-MM-DD
   const [selectedEndDate, setSelectedEndDate] = useState<string>(''); // YYYY-MM-DD
+  const [showIncomplete, setShowIncomplete] = useState<boolean>(false);
+
+  // 将未完成记录映射为用于展示/统计的结构
+  const mappedIncomplete: HistoryRecord[] = useMemo(() => {
+    return incompleteRecords.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      date: r.date,
+      problemType: r.problemType,
+      difficulty: r.difficulty,
+      totalProblems: r.totalProblems,
+      correctAnswers: r.correctAnswers,
+      accuracy: r.accuracy,
+      totalTime: r.totalTime,
+      averageTime: r.averageTime,
+      problems: r.problems,
+      answers: r.answers,
+      answerTimes: r.answerTimes,
+      score: r.score,
+    }));
+  }, [incompleteRecords]);
+
+  const displayRecords = showIncomplete ? mappedIncomplete : records;
 
   const getTypeName = (type: string) => ({
     'mental': '口算',
@@ -116,12 +141,12 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
   // 预先根据题型/难度过滤，用于日历标记
   const typeDiffFiltered = useMemo(() => {
-    return records.filter((record) => {
+    return displayRecords.filter((record) => {
       const typeMatch = selectedType === 'all' || record.problemType === selectedType;
       const difficultyMatch = selectedDifficulty === 'all' || record.difficulty === selectedDifficulty;
       return typeMatch && difficultyMatch;
     });
-  }, [records, selectedType, selectedDifficulty]);
+  }, [displayRecords, selectedType, selectedDifficulty]);
 
   const dateHasRecordsSet = useMemo(() => {
     const set = new Set<string>();
@@ -300,12 +325,12 @@ export const HistoryList: React.FC<HistoryListProps> = ({
           </div>
         </div>
 
-        {records.length === 0 ? (
+        {displayRecords.length === 0 ? (
           /* 空状态 */
           <div className="text-center py-12">
             <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">暂无练习记录</h3>
-            <p className="text-gray-500">开始你的第一次练习吧！</p>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">{showIncomplete ? '暂无未完成记录' : '暂无练习记录'}</h3>
+            <p className="text-gray-500">{showIncomplete ? '答题时会自动保存未完成进度' : '开始你的第一次练习吧！'}</p>
           </div>
         ) : (
           <>
@@ -385,6 +410,17 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                   <X className="w-4 h-4 mr-1" />
                   重置日期
                 </button>
+
+                {/* 显示未完成记录开关 */}
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showIncomplete}
+                    onChange={(e) => { setSelectedRecords(new Set()); setShowIncomplete(e.target.checked); }}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  显示未完成记录
+                </label>
 
                 {/* 显示筛选结果数量 */}
                 <div className="text-sm text-gray-600">
@@ -583,7 +619,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                 filteredRecords.map((record) => (
                   <div
                     key={record.id}
-                    onClick={(e) => handleRecordClick(record, e)}
+                    onClick={(e) => { if (!showIncomplete) handleRecordClick(record, e); }}
                     className="bg-gray-50 hover:bg-gray-100 p-4 rounded-xl cursor-pointer transition-all duration-200 border border-transparent hover:border-gray-200"
                   >
                     <div className="flex items-center">
@@ -607,6 +643,9 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                           <span className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(record.difficulty)}`}>
                             {getDifficultyName(record.difficulty)}
                           </span>
+                          {showIncomplete && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">未完成</span>
+                          )}
                           <span className="text-xs text-gray-500 flex items-center">
                             <Calendar className="w-3 h-3 mr-1" />
                             {formatDate(record.date)}
@@ -629,9 +668,11 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                       </div>
 
                       {/* 查看详情指示 */}
-                      <div className="text-gray-400 ml-4 flex-shrink-0">
-                        <span className="text-xs">点击查看详情 →</span>
-                      </div>
+                      {!showIncomplete && (
+                        <div className="text-gray-400 ml-4 flex-shrink-0">
+                          <span className="text-xs">点击查看详情 →</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
