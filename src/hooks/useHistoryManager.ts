@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { HistoryRecord, GameSession, IncompleteHistoryRecord } from '../types';
+import type { HistoryRecord as ServerHistoryRecord } from '../types/supabase';
 import { useLocalStorage } from './useLocalStorage';
 
 export const useHistoryManager = () => {
@@ -243,6 +244,38 @@ export const useHistoryManager = () => {
         return [record, ...prev];
       });
       return true;
+    },
+    // 将服务器记录合并到本地（去重：以 client_id 作为本地 id）
+    mergeServerRecords: (serverRecords: ServerHistoryRecord[], userId: string) => {
+      if (!Array.isArray(serverRecords) || serverRecords.length === 0) return 0;
+      const toAppend: HistoryRecord[] = [];
+      const existingIds = new Set(historyRecords.map(r => r.id));
+      for (const s of serverRecords) {
+        const clientId = (s.client_id || '').toString();
+        if (!clientId || existingIds.has(clientId)) continue;
+        if (s.user_id !== userId) continue;
+        const local: HistoryRecord = {
+          id: clientId,
+          userId: userId,
+          date: new Date(s.date).getTime(),
+          problemType: s.problem_type,
+          difficulty: s.difficulty,
+          totalProblems: s.total_problems,
+          correctAnswers: s.correct_answers,
+          accuracy: typeof s.accuracy === 'number' ? Math.round(s.accuracy) : Number(s.accuracy || 0),
+          totalTime: s.total_time,
+          averageTime: typeof s.average_time === 'number' ? Math.round(s.average_time) : Number(s.average_time || 0),
+          problems: (s.problems ?? []) as any,
+          answers: (s.answers ?? []) as any,
+          answerTimes: (s.answer_times ?? []) as number[],
+          score: s.score,
+        };
+        toAppend.push(local);
+      }
+      if (toAppend.length > 0) {
+        setHistoryRecords(prev => [...toAppend, ...prev]);
+      }
+      return toAppend.length;
     },
     getUserIncompleteRecords: (userId: string): IncompleteHistoryRecord[] => {
       return incompleteHistoryRecords

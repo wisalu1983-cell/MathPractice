@@ -12,7 +12,7 @@ export async function saveHistoryRecord(
 
   const { data, error } = await supabase
     .from('history_records')
-    .insert(payload)
+    .upsert(payload, { onConflict: 'user_id,client_id' })
     .select('*')
     .single();
 
@@ -29,6 +29,10 @@ export async function listHistoryRecords(userId: string) {
 
   if (error) throw error;
   return (data ?? []) as HistoryRecord[];
+}
+
+export async function pullAllHistoryRecords(userId: string) {
+  return listHistoryRecords(userId);
 }
 
 

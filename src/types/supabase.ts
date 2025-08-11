@@ -27,6 +27,7 @@ export interface HistoryRecord {
   answers: any[]; // 存储 (string|number)[] 的 JSON
   answer_times: number[]; // 存储 number[] 的 JSON
   score: number;
+  client_id: string | null; // 去重键
 }
 
 // Supabase 数据库的完整类型定义

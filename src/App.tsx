@@ -12,6 +12,9 @@ import { UserModal } from './components/UserModal';
 import { HistoryList } from './components/HistoryList';
 import { Home } from 'lucide-react';
 import { TestDataGenerator } from './components/TestDataGenerator';
+import { OnlineAuthModal } from './components/OnlineAuthModal';
+import { useOnlineAuth } from './hooks/useOnlineAuth';
+import { useSyncManager } from './hooks/useSyncManager';
 
 const initialSession: GameSession = {
   currentProblem: null,
@@ -47,14 +50,38 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<HistoryRecord | null>(null);
   const [showTestGenerator, setShowTestGenerator] = useState(false);
+  const [showOnlineAuth, setShowOnlineAuth] = useState(false);
+  const online = useOnlineAuth();
+  const sync = useSyncManager(online.user?.id ?? null);
 
   // 当游戏结束时自动保存记录
   useEffect(() => {
     if (session.isCompleted && !isRecordSaved && userManager.currentUser && currentView === 'result') {
-      historyManager.saveRecord(session, userManager.currentUser.id);
+      const recordId = historyManager.saveRecord(session, userManager.currentUser.id);
+      // 若在线，组装服务端 payload 入队（最小实现：字段名转下划线 + client_id）
+      if (online.user) {
+        const payload = {
+          client_id: recordId,
+          date: new Date((session.endTime || Date.now())).toISOString(),
+          problem_type: session.problemType!,
+          difficulty: session.difficulty!,
+          total_problems: session.totalProblems,
+          correct_answers: session.correctAnswers,
+          accuracy: Math.round((session.correctAnswers / session.totalProblems) * 100),
+          total_time: session.endTime && session.startTime ? Math.round((session.endTime - session.startTime) / 1000) : 0,
+          average_time: session.totalProblems > 0 && session.endTime && session.startTime ? Math.round(((session.endTime - session.startTime) / 1000) / session.totalProblems) : 0,
+          problems: session.problems,
+          answers: session.answers,
+          answer_times: session.answerTimes,
+          score: session.score,
+        } as const;
+        sync.enqueueRecord(payload);
+        // 立即尝试上行
+        sync.flush();
+      }
       setIsRecordSaved(true); // 标记为已保存
     }
-  }, [session.isCompleted, isRecordSaved, userManager.currentUser, currentView, historyManager]);
+  }, [session.isCompleted, isRecordSaved, userManager.currentUser, currentView, historyManager, online.user, sync]);
 
   // 自动周期性保存未完成进度（更可靠），以及在关闭/刷新页面时保存一次
   useEffect(() => {
@@ -223,6 +250,8 @@ function App() {
       if (userManager.currentUser) {
         setCurrentView('history');
       }
+    } else if (action === 'login') {
+      setShowOnlineAuth(true);
     } else {
       setShowUserModal(true);
     }
@@ -397,6 +426,11 @@ function App() {
           onCreateUser={userManager.createUser}
           onLoginUser={userManager.loginUser}
           currentUser={userManager.currentUser}
+        />
+
+        <OnlineAuthModal
+          isOpen={showOnlineAuth}
+          onClose={() => setShowOnlineAuth(false)}
         />
 
         <TestDataGenerator
