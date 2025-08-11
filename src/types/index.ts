@@ -99,4 +99,4 @@ export interface UserManager {
   users: User[];
 }
 
-export type UserAction = 'login' | 'register' | 'switch' | 'viewHistory' | 'exportData' | 'importData';
+export type UserAction = 'login' | 'register' | 'switch' | 'viewHistory';
