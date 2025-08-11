@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS public.history_records (
   problems JSONB NOT NULL, -- 存储 Problem[] 数组
   answers JSONB NOT NULL, -- 存储 (string|number)[] 数组
   answer_times JSONB NOT NULL, -- 存储 number[] 数组（每道题的答题时间）
-  score INTEGER NOT NULL
+  score INTEGER NOT NULL,
+  client_id TEXT -- 可选：客户端生成的去重ID（如本地记录ID或 sessionId）
 );
 
 -- 启用 history_records 表的 RLS
@@ -71,6 +72,19 @@ CREATE INDEX IF NOT EXISTS idx_history_records_user_id ON public.history_records
 CREATE INDEX IF NOT EXISTS idx_history_records_date ON public.history_records(date);
 CREATE INDEX IF NOT EXISTS idx_history_records_problem_type ON public.history_records(problem_type);
 CREATE INDEX IF NOT EXISTS idx_history_records_difficulty ON public.history_records(difficulty);
+-- 基于 user_id + client_id 的唯一约束，便于多设备/离线去重合并
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' 
+      AND indexname = 'uniq_history_user_client'
+  ) THEN
+    CREATE UNIQUE INDEX uniq_history_user_client 
+      ON public.history_records(user_id, client_id) 
+      WHERE client_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- 4. 创建函数：自动创建用户资料
 -- 当新用户注册时，自动在 profiles 表中创建记录
