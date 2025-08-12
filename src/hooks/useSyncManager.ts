@@ -47,6 +47,21 @@ export function useSyncManager(onlineUserId: string | null) {
     saveOutbox(onlineUserId, queue);
   }, [onlineUserId]);
 
+  // 用于把“本地历史”补传到当前账号：传入本地记录数组（已转服务端字段），逐条入队
+  const enqueueBatch = useCallback((payloads: any[]) => {
+    if (!onlineUserId || !Array.isArray(payloads) || payloads.length === 0) return 0;
+    let added = 0;
+    const queue = loadOutbox(onlineUserId);
+    for (const p of payloads) {
+      if (!queue.some(q => q.client_id === p.client_id)) {
+        queue.push({ client_id: p.client_id, payload: p, retry: 0 });
+        added += 1;
+      }
+    }
+    saveOutbox(onlineUserId, queue);
+    return added;
+  }, [onlineUserId]);
+
   const flush = useCallback(async () => {
     if (!onlineUserId || syncing || !isOnline) return;
     setSyncing(true);
@@ -101,6 +116,7 @@ export function useSyncManager(onlineUserId: string | null) {
 
   return {
     enqueueRecord,
+    enqueueBatch,
     flush,
     syncing,
     lastSyncAt,

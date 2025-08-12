@@ -15,6 +15,7 @@ import { TestDataGenerator } from './components/TestDataGenerator';
 import { OnlineAuthModal } from './components/OnlineAuthModal';
 import { useOnlineAuth } from './hooks/useOnlineAuth';
 import { useSyncManager } from './hooks/useSyncManager';
+import { ImportLocalHistoryModal } from './components/ImportLocalHistoryModal';
 
 const initialSession: GameSession = {
   currentProblem: null,
@@ -53,6 +54,7 @@ function App() {
   const [showOnlineAuth, setShowOnlineAuth] = useState(false);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // 当游戏结束时自动保存记录
   useEffect(() => {
@@ -403,6 +405,22 @@ function App() {
               onUserAction={handleUserAction}
               onGenerateTestData={() => setShowTestGenerator(true)}
             />
+
+            {online.user && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => sync.flush()}
+                  className="bg-white hover:bg-gray-50 text-blue-600 font-medium py-2 px-3 rounded-xl border border-gray-200 transition-colors duration-200"
+                >
+                  立即同步
+                </button>
+                {sync.lastSyncAt && (
+                  <span className="text-xs text-gray-500">
+                    上次同步 {new Date(sync.lastSyncAt).toLocaleTimeString('zh-CN', { hour12: false })}
+                  </span>
+                )}
+              </div>
+            )}
             
             {currentView !== 'home' && (
               <button
@@ -411,6 +429,15 @@ function App() {
               >
                 <Home className="w-4 h-4 mr-2" />
                 返回首页
+              </button>
+            )}
+
+            {online.user && (
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-3 rounded-xl border border-gray-200"
+              >
+                导入本地历史
               </button>
             )}
           </div>
@@ -439,6 +466,38 @@ function App() {
         <OnlineAuthModal
           isOpen={showOnlineAuth}
           onClose={() => setShowOnlineAuth(false)}
+        />
+
+        <ImportLocalHistoryModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          localUsers={userManager.users.filter(u => !u.isDeveloper)}
+          getLocalRecordCount={(uid) => historyManager.getLocalRecordCount(uid)}
+          onImportSelected={async (userIds) => {
+            // 将选中的本地用户的完成记录转为服务器 payload 入队
+            if (!online.user) return;
+            const payloads = userIds
+              .flatMap(uid => historyManager.getUserRecords(uid))
+              .map(r => ({
+                client_id: r.id,
+                date: new Date(r.date).toISOString(),
+                problem_type: r.problemType,
+                difficulty: r.difficulty,
+                total_problems: r.totalProblems,
+                correct_answers: r.correctAnswers,
+                accuracy: r.accuracy,
+                total_time: r.totalTime,
+                average_time: r.averageTime,
+                problems: r.problems,
+                answers: r.answers,
+                answer_times: r.answerTimes,
+                score: r.score,
+              }));
+            const added = sync.enqueueBatch(payloads);
+            // 立即尝试上行
+            if (added > 0) await sync.flush();
+            setShowImportModal(false);
+          }}
         />
 
         <TestDataGenerator

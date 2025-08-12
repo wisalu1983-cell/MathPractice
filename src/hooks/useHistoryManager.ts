@@ -148,6 +148,11 @@ export const useHistoryManager = () => {
     return true;
   }, [setHistoryRecords]);
 
+  // 统计某个本地用户的完成记录数
+  const getLocalRecordCount = useCallback((userId: string): number => {
+    return historyRecords.filter(r => r.userId === userId).length;
+  }, [historyRecords]);
+
   // 清空用户的所有记录
   const clearUserRecords = useCallback((userId: string): boolean => {
     setHistoryRecords(prev => prev.filter(record => record.userId !== userId));
@@ -199,6 +204,7 @@ export const useHistoryManager = () => {
     deleteRecord,
     clearUserRecords,
     getUserStats,
+    getLocalRecordCount,
     // 未完成记录相关
     incompleteHistoryRecords,
     upsertIncompleteRecord: (session: GameSession, userId: string, overrideDate?: number) => {
