@@ -87,9 +87,11 @@ function App() {
 
   // 自动周期性保存未完成进度（更可靠），以及在关闭/刷新页面时保存一次
   useEffect(() => {
-    if (!session.isActive || session.isCompleted || !userManager.currentUser) return;
+    if (!session.isActive || session.isCompleted) return;
 
-    const userId = userManager.currentUser.id;
+    const userId = online.user?.id || userManager.currentUser?.id;
+    if (!userId) return;
+
     const intervalId = window.setInterval(() => {
       historyManager.upsertIncompleteRecord(session, userId);
     }, 10000); // 每10秒一次
@@ -103,7 +105,7 @@ function App() {
       window.clearInterval(intervalId);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [session.isActive, session.isCompleted, session.sessionId, userManager.currentUser, historyManager, session]);
+  }, [session.isActive, session.isCompleted, session.sessionId, userManager.currentUser, online.user, historyManager, session]);
 
   const startGame = () => {
     const problems = generateProblems(selectedType, selectedDifficulty);
@@ -177,8 +179,9 @@ function App() {
 
     setSession(updatedSession);
     // 增量保存未完成记录快照
-    if (userManager.currentUser) {
-      historyManager.upsertIncompleteRecord(updatedSession, userManager.currentUser.id);
+    {
+      const userId = online.user?.id || userManager.currentUser?.id;
+      if (userId) historyManager.upsertIncompleteRecord(updatedSession, userId);
     }
   };
 
@@ -211,6 +214,11 @@ function App() {
   };
 
   const resetGame = () => {
+    // 若正在进行但未完成，返回首页前先保存一次“未完成进度”快照
+    if (session.isActive && !session.isCompleted) {
+      const userId = online.user?.id || userManager.currentUser?.id;
+      if (userId) historyManager.upsertIncompleteRecord(session, userId);
+    }
     setSession(initialSession);
     setShowResult(false);
     setIsCorrect(null);
