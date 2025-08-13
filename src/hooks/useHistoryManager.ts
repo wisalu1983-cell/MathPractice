@@ -251,9 +251,10 @@ export const useHistoryManager = () => {
       });
       return true;
     },
-    // 将服务器记录合并到本地（去重：以 client_id 作为本地 id）
-    // 同时修正离线期间以“本地用户ID”保存的记录归属：
-    // 若本地已存在相同 client_id，但其 userId 与在线 userId 不同，则以云端数据覆盖并“转归属”为在线 userId。
+    // 将服务器记录合并到本地（去重：以 client_id 作为主键）
+    // 兼容“旧本地用户保留”策略：
+    // 若本地已存在相同 client_id，但归属为其它本地用户，则不覆盖原记录，
+    // 而是为在线账号生成一个别名ID（userId_clientId）加入，避免清空旧本地用户的数据。
     mergeServerRecords: (serverRecords: ServerHistoryRecord[], userId: string) => {
       if (!Array.isArray(serverRecords) || serverRecords.length === 0) return 0;
 
@@ -268,7 +269,7 @@ export const useHistoryManager = () => {
           const clientId = (s.client_id || '').toString();
           if (!clientId) continue;
 
-          const canonical: HistoryRecord = {
+          let canonical: HistoryRecord = {
             id: clientId,
             userId: userId,
             date: new Date(s.date).getTime(),
@@ -287,15 +288,36 @@ export const useHistoryManager = () => {
 
           const local = byId.get(clientId);
           if (local) {
-            // 若已存在，但 userId 不同或数据旧，则以云端版本覆盖
-            if (
-              local.userId !== userId ||
-              local.date !== canonical.date ||
-              local.score !== canonical.score ||
-              local.correctAnswers !== canonical.correctAnswers
-            ) {
-              updates.set(clientId, canonical);
-              affected += 1;
+            if (local.userId !== userId) {
+              // 冲突：同 clientId 已存在于其它本地用户下 → 为在线账号生成别名ID
+              const aliasId = `${userId}_${clientId}`;
+              canonical = { ...canonical, id: aliasId };
+              const existsAlias = byId.has(aliasId);
+              if (!existsAlias) {
+                toAppend.push(canonical);
+                affected += 1;
+              } else {
+                // 已存在别名，检查是否需要更新
+                const aliasLocal = byId.get(aliasId)!;
+                if (
+                  aliasLocal.date !== canonical.date ||
+                  aliasLocal.score !== canonical.score ||
+                  aliasLocal.correctAnswers !== canonical.correctAnswers
+                ) {
+                  updates.set(aliasId, canonical);
+                  affected += 1;
+                }
+              }
+            } else {
+              // 同一账号下，如数据不同则覆盖
+              if (
+                local.date !== canonical.date ||
+                local.score !== canonical.score ||
+                local.correctAnswers !== canonical.correctAnswers
+              ) {
+                updates.set(clientId, canonical);
+                affected += 1;
+              }
             }
           } else {
             toAppend.push(canonical);

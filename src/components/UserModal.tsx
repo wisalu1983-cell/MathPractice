@@ -116,30 +116,9 @@ export const UserModal: React.FC<UserModalProps> = ({
     }
   };
 
-  const getModalTitle = () => {
-    switch (action) {
-      case 'register':
-        return '新建用户';
-      case 'login':
-      case 'switch':
-        return '选择用户';
-      default:
-        return '用户管理';
-    }
-  };
+  const getModalTitle = () => '选择旧本地用户';
 
-  const getModalIcon = () => {
-    switch (action) {
-      case 'register':
-        return <UserPlus className="w-6 h-6" />;
-      case 'login':
-        return <LogIn className="w-6 h-6" />;
-      case 'switch':
-        return <Users className="w-6 h-6" />;
-      default:
-        return <User className="w-6 h-6" />;
-    }
-  };
+  const getModalIcon = () => <Users className="w-6 h-6" />;
 
   if (!isOpen) return null;
 
@@ -169,52 +148,7 @@ export const UserModal: React.FC<UserModalProps> = ({
 
         {/* 内容区域 */}
         <div className="space-y-4">
-          {action === 'register' && (
-            /* 新建用户表单 */
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  用户名
-                </label>
-                <input
-                  type="text"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors duration-200"
-                  placeholder="请输入用户名"
-                  maxLength={20}
-                  autoFocus
-                  onKeyPress={(e) => e.key === 'Enter' && handleCreateUser()}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  用户名长度为2-20个字符
-                </p>
-              </div>
-
-              {error && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleCreateUser}
-                  disabled={isLoading}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-                >
-                  {isLoading ? '创建中...' : '创建用户'}
-                </button>
-                <button
-                  onClick={handleClose}
-                  disabled={isLoading}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 删除新建用户表单：不再支持新建本地用户 */}
 
           {(action === 'login' || action === 'switch') && (
             /* 用户选择列表 */

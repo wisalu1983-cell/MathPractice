@@ -30,6 +30,25 @@ export interface HistoryRecord {
   client_id: string | null; // 去重键
 }
 
+export interface IncompleteHistoryRecord {
+  id: string;
+  user_id: string;
+  date: string;
+  problem_type: ProblemType;
+  difficulty: Difficulty;
+  total_problems: number; // 已作答题数
+  correct_answers: number;
+  accuracy: number;
+  total_time: number;
+  average_time: number;
+  problems: any[];
+  answers: any[];
+  answer_times: number[];
+  score: number;
+  planned_total_problems: number; // 计划总题数
+  client_id: string | null;
+}
+
 // Supabase 数据库的完整类型定义
 export interface Database {
   public: {
@@ -46,6 +65,14 @@ export interface Database {
           date?: string; 
         };
         Update: Partial<Omit<HistoryRecord, 'id' | 'user_id'>>;
+      };
+      incomplete_history_records: {
+        Row: IncompleteHistoryRecord;
+        Insert: Omit<IncompleteHistoryRecord, 'id' | 'date'> & {
+          id?: string;
+          date?: string;
+        };
+        Update: Partial<Omit<IncompleteHistoryRecord, 'id' | 'user_id'>>;
       };
     };
   };

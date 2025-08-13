@@ -8,11 +8,12 @@ interface OnlineAuthModalProps {
 }
 
 export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, loading, error, signIn, signUp, signOut } = useOnlineAuth();
+  const { user, loading, error, signIn, signUp, signOut, recentEmails } = useOnlineAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [showSwitch, setShowSwitch] = useState(false);
 
   if (!isOpen) return null;
 
@@ -45,6 +46,31 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
         {user ? (
           <div className="space-y-4">
             <div className="text-sm text-gray-700">已登录：{user.email}</div>
+            {recentEmails.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-600">切换到其他账号</div>
+                  <button
+                    className="text-xs text-blue-600"
+                    onClick={() => setShowSwitch(v => !v)}
+                  >{showSwitch ? '收起' : '展开'}</button>
+                </div>
+                {showSwitch && (
+                  <div className="mt-2 space-y-2">
+                    {recentEmails.map(em => (
+                      <button
+                        key={em}
+                        className="w-full text-left px-3 py-2 rounded border hover:bg-gray-100 text-sm"
+                        onClick={() => { setEmail(em); setMode('login'); setShowSwitch(false); }}
+                      >{em}</button>
+                    ))}
+                    {recentEmails.length === 0 && (
+                      <div className="text-xs text-gray-500">暂无最近登录账号</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={handleSignOut}
               disabled={loading}
@@ -87,6 +113,21 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="you@example.com"
               />
+              {recentEmails && recentEmails.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs text-gray-500 mb-1">最近登录：</div>
+                  <div className="flex flex-wrap gap-2">
+                    {recentEmails.map(em => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => { setEmail(em); setMode('login'); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200"
+                      >{em}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

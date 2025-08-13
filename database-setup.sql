@@ -86,6 +86,56 @@ BEGIN
   END IF;
 END $$;
 
+-- 3.1 创建 incomplete_history_records 表（未完成记录表）
+-- 存储“未完成”的练习进度，供多设备查看/统计；不做续玩逻辑
+CREATE TABLE IF NOT EXISTS public.incomplete_history_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  problem_type TEXT NOT NULL CHECK (problem_type IN ('mental','written','mixed','properties')),
+  difficulty TEXT NOT NULL CHECK (difficulty IN ('basic','challenge')),
+  total_problems INTEGER NOT NULL, -- 已作答题数
+  correct_answers INTEGER NOT NULL,
+  accuracy NUMERIC NOT NULL CHECK (accuracy >= 0 AND accuracy <= 100),
+  total_time INTEGER NOT NULL,
+  average_time NUMERIC NOT NULL,
+  problems JSONB NOT NULL,
+  answers JSONB NOT NULL,
+  answer_times JSONB NOT NULL,
+  score INTEGER NOT NULL,
+  planned_total_problems INTEGER NOT NULL,
+  client_id TEXT
+);
+
+-- 启用 RLS 并添加策略
+ALTER TABLE public.incomplete_history_records ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "用户可以查看自己的未完成记录"
+  ON public.incomplete_history_records FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY IF NOT EXISTS "用户可以插入自己的未完成记录"
+  ON public.incomplete_history_records FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY IF NOT EXISTS "用户可以更新自己的未完成记录"
+  ON public.incomplete_history_records FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- 唯一约束（或唯一索引）
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' 
+      AND indexname = 'uniq_incomplete_user_client'
+  ) THEN
+    CREATE UNIQUE INDEX uniq_incomplete_user_client
+      ON public.incomplete_history_records(user_id, client_id)
+      WHERE client_id IS NOT NULL;
+  END IF;
+END $$;
+
 -- 4. 创建函数：自动创建用户资料
 -- 当新用户注册时，自动在 profiles 表中创建记录
 CREATE OR REPLACE FUNCTION public.handle_new_user() 

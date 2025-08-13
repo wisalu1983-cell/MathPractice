@@ -56,6 +56,13 @@ function App() {
   const sync = useSyncManager(online.user?.id ?? null);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // 路由守卫：避免在渲染阶段触发 setState 导致循环
+  useEffect(() => {
+    if (currentView === 'history' && !online.user && !userManager.currentUser) {
+      setCurrentView('home');
+    }
+  }, [currentView, online.user, userManager.currentUser]);
+
   // 当游戏结束时自动保存记录
   useEffect(() => {
     if (session.isCompleted && !isRecordSaved && userManager.currentUser && currentView === 'result') {
@@ -85,27 +92,7 @@ function App() {
     }
   }, [session.isCompleted, isRecordSaved, userManager.currentUser, currentView, historyManager, online.user, sync]);
 
-  // 自动周期性保存未完成进度（更可靠），以及在关闭/刷新页面时保存一次
-  useEffect(() => {
-    if (!session.isActive || session.isCompleted) return;
-
-    const userId = online.user?.id || userManager.currentUser?.id;
-    if (!userId) return;
-
-    const intervalId = window.setInterval(() => {
-      historyManager.upsertIncompleteRecord(session, userId);
-    }, 10000); // 每10秒一次
-
-    const handleBeforeUnload = () => {
-      historyManager.upsertIncompleteRecord(session, userId);
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [session.isActive, session.isCompleted, session.sessionId, userManager.currentUser, online.user, historyManager, session]);
+  // 暂不做“未完成记录”续玩，移除周期性保存与 beforeunload 钩子
 
   const startGame = () => {
     const problems = generateProblems(selectedType, selectedDifficulty);
@@ -257,7 +244,8 @@ function App() {
     setUserAction(action);
     
     if (action === 'viewHistory') {
-      if (userManager.currentUser) {
+      // 仅当已登录在线账号或使用旧本地用户时允许进入历史
+      if (online.user || userManager.currentUser) {
         setCurrentView('history');
       }
     } else if (action === 'login') {
@@ -345,23 +333,27 @@ function App() {
         );
 
       case 'history':
-        const historyUser = online.user
-          ? {
-              id: online.user.id,
-              name: online.user.email || 'Online User',
-              createdAt: Date.now(),
-              lastLoginAt: Date.now(),
-            }
-          : userManager.currentUser;
-        return historyUser && (
-          <HistoryList
-            user={historyUser}
-            records={historyManager.getUserRecords(historyUser.id)}
-            incompleteRecords={historyManager.getUserIncompleteRecords(historyUser.id)}
-            onBack={handleBackFromHistoryList}
-            onViewRecord={handleViewHistoryRecord}
-          />
-        );
+        // 未登录在线账号、且未选择旧本地用户时，渲染空（useEffect 会跳回首页）
+        if (!online.user && !userManager.currentUser) return null;
+        {
+          const historyUser = online.user
+            ? {
+                id: online.user.id,
+                name: online.user.email || 'Online User',
+                createdAt: Date.now(),
+                lastLoginAt: Date.now(),
+              }
+            : userManager.currentUser!;
+          return (
+            <HistoryList
+              user={historyUser}
+              records={historyManager.getUserRecords(historyUser.id)}
+              incompleteRecords={historyManager.getUserIncompleteRecords(historyUser.id)}
+              onBack={handleBackFromHistoryList}
+              onViewRecord={handleViewHistoryRecord}
+            />
+          );
+        }
 
       default: // 'home'
         return (
@@ -468,26 +460,42 @@ function App() {
           localUsers={userManager.users.filter(u => !u.isDeveloper)}
           getLocalRecordCount={(uid) => historyManager.getLocalRecordCount(uid)}
           onImportSelected={async (userIds) => {
-            // 将选中的本地用户的完成记录转为服务器 payload 入队
+            // 将选中的本地用户的完成/未完成记录转为服务器 payload 入队
             if (!online.user) return;
-            const payloads = userIds
-              .flatMap(uid => historyManager.getUserRecords(uid))
-              .map(r => ({
-                client_id: r.id,
-                date: new Date(r.date).toISOString(),
-                problem_type: r.problemType,
-                difficulty: r.difficulty,
-                total_problems: r.totalProblems,
-                correct_answers: r.correctAnswers,
-                accuracy: r.accuracy,
-                total_time: r.totalTime,
-                average_time: r.averageTime,
-                problems: r.problems,
-                answers: r.answers,
-                answer_times: r.answerTimes,
-                score: r.score,
-              }));
-            const added = sync.enqueueBatch(payloads);
+            const completedRecords = userIds.flatMap(uid => historyManager.getUserRecords(uid));
+            const incompleteRecords = userIds.flatMap(uid => historyManager.getUserIncompleteRecords(uid));
+            const payloads = completedRecords.map(r => ({
+              client_id: r.id,
+              date: new Date(r.date).toISOString(),
+              problem_type: r.problemType,
+              difficulty: r.difficulty,
+              total_problems: r.totalProblems,
+              correct_answers: r.correctAnswers,
+              accuracy: r.accuracy,
+              total_time: r.totalTime,
+              average_time: r.averageTime,
+              problems: r.problems,
+              answers: r.answers,
+              answer_times: r.answerTimes,
+              score: r.score,
+            }));
+            const incompletePayloads = incompleteRecords.map(r => ({
+              client_id: r.id,
+              date: new Date(r.date).toISOString(),
+              problem_type: r.problemType,
+              difficulty: r.difficulty,
+              total_problems: r.totalProblems,
+              correct_answers: r.correctAnswers,
+              accuracy: r.accuracy,
+              total_time: r.totalTime,
+              average_time: r.averageTime,
+              problems: r.problems,
+              answers: r.answers,
+              answer_times: r.answerTimes,
+              score: r.score,
+              planned_total_problems: r.plannedTotalProblems,
+            }));
+            const added = sync.enqueueBatch([...payloads, ...incompletePayloads]);
             // 立即尝试上行
             if (added > 0) await sync.flush();
             setShowImportModal(false);
@@ -497,7 +505,7 @@ function App() {
         <TestDataGenerator
           isOpen={showTestGenerator}
           onClose={() => setShowTestGenerator(false)}
-          currentUserId={userManager.currentUser?.id || null}
+          currentUserId={online.user?.id || userManager.currentUser?.id || null}
           saveRecords={historyManager.saveRecords}
           refreshRecords={historyManager.refreshRecords}
           clearUserRecords={historyManager.clearUserRecords}

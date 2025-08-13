@@ -8,6 +8,8 @@ interface UseOnlineAuthState {
   user: SupabaseUser | null;
   loading: boolean;
   error: string | null;
+  isDeveloper: boolean;
+  recentEmails: string[];
 }
 
 export function useOnlineAuth() {
@@ -16,6 +18,8 @@ export function useOnlineAuth() {
     user: null,
     loading: true,
     error: null,
+    isDeveloper: false,
+    recentEmails: [],
   });
 
   // 初始化拉取当前会话，并监听会话变化
@@ -24,20 +28,31 @@ export function useOnlineAuth() {
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
+      const email = data.session?.user?.email || '';
+      const isDev = !!email && email.toLowerCase().endsWith('@whosyour.daddy');
       setState(prev => ({
         ...prev,
         session: data.session ?? null,
         user: data.session?.user ?? null,
         loading: false,
         error: error ? error.message : null,
+        isDeveloper: isDev,
+        recentEmails: loadRecentEmails(),
       }));
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user?.email || '';
+      const isDev = !!email && email.toLowerCase().endsWith('@whosyour.daddy');
+      if (email && !isDev) {
+        saveRecentEmail(email);
+      }
       setState(prev => ({
         ...prev,
         session: session ?? null,
         user: session?.user ?? null,
+        isDeveloper: isDev,
+        recentEmails: loadRecentEmails(),
       }));
     });
 
@@ -60,7 +75,9 @@ export function useOnlineAuth() {
     }
     const user = data.user ?? data.session?.user ?? null;
     if (user) {
-      await ensureProfile(user.id, displayName || user.email || 'Anonymous');
+      const isDev = !!user.email && user.email.toLowerCase().endsWith('@whosyour.daddy');
+      await ensureProfile(user.id, displayName || user.email || 'Anonymous', isDev);
+      if (user.email && !isDev) saveRecentEmail(user.email);
     }
     // 如果开启邮箱验证，可能无 session，需要提示用户去验证邮箱
     setState(prev => ({
@@ -69,6 +86,8 @@ export function useOnlineAuth() {
       user: user,
       loading: false,
       error: null,
+      isDeveloper: !!(user?.email) && user.email!.toLowerCase().endsWith('@whosyour.daddy'),
+      recentEmails: loadRecentEmails(),
     }));
     return { ok: true, needsVerification: !data.session } as const;
   }, []);
@@ -81,9 +100,18 @@ export function useOnlineAuth() {
       return { ok: false } as const;
     }
     if (data.user) {
-      await ensureProfile(data.user.id, data.user.user_metadata?.name ?? data.user.email ?? 'Anonymous');
+      const isDev = !!data.user.email && data.user.email.toLowerCase().endsWith('@whosyour.daddy');
+      await ensureProfile(data.user.id, data.user.user_metadata?.name ?? data.user.email ?? 'Anonymous', isDev);
+      if (data.user.email && !isDev) saveRecentEmail(data.user.email);
     }
-    setState(prev => ({ ...prev, session: data.session ?? null, user: data.user ?? null, loading: false }));
+    setState(prev => ({
+      ...prev,
+      session: data.session ?? null,
+      user: data.user ?? null,
+      loading: false,
+      isDeveloper: !!(data.user?.email) && data.user!.email!.toLowerCase().endsWith('@whosyour.daddy'),
+      recentEmails: loadRecentEmails(),
+    }));
     return { ok: true } as const;
   }, []);
 
@@ -94,7 +122,7 @@ export function useOnlineAuth() {
       setState(prev => ({ ...prev, loading: false, error: error.message }));
       return { ok: false } as const;
     }
-    setState(prev => ({ ...prev, session: null, user: null, loading: false }));
+    setState(prev => ({ ...prev, session: null, user: null, loading: false, isDeveloper: false }));
     return { ok: true } as const;
   }, []);
 
@@ -104,6 +132,27 @@ export function useOnlineAuth() {
     signIn,
     signOut,
   };
+}
+
+// 最近登录邮箱列表（仅普通账号，排除开发者域名）
+const RECENT_EMAILS_KEY = 'recent_logins';
+function loadRecentEmails(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_EMAILS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    // 过滤掉开发者邮箱，最多5条
+    return arr.filter((e: string) => typeof e === 'string' && !e.toLowerCase().endsWith('@whosyour.daddy')).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+function saveRecentEmail(email: string) {
+  const e = (email || '').toLowerCase();
+  if (!e || e.endsWith('@whosyour.daddy')) return;
+  const list = loadRecentEmails();
+  const next = [e, ...list.filter(x => x !== e)].slice(0, 5);
+  localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next));
 }
 
 

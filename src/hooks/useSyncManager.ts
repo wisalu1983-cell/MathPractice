@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GameSession, HistoryRecord as LocalHistoryRecord } from '../types';
-import { saveHistoryRecord, pullAllHistoryRecords } from '../services/history';
+import { useCallback, useEffect, useState } from 'react';
+// Note: types from '../types' not needed here; keep hook focused on sync pipeline
+import { saveHistoryRecord, pullAllHistoryRecords, saveIncompleteHistoryRecord } from '../services/history';
 import { useHistoryManager } from './useHistoryManager';
-import { supabase } from '../lib/supabase';
 
 type PendingItem = {
   client_id: string;
   payload: any;
   retry: number;
 };
+
+// 同步队列上限（仅针对“未上云的待同步记录”）
+const OUTBOX_LIMIT = 50;
 
 function outboxKey(userId: string) {
   return `sync_outbox_${userId}`;
@@ -29,7 +31,9 @@ function saveOutbox(userId: string, items: PendingItem[]) {
     localStorage.removeItem(key);
     return;
   }
-  localStorage.setItem(key, JSON.stringify(items));
+  // 仅保留最近 OUTBOX_LIMIT 条（FIFO，丢弃最早项）
+  const trimmed = items.length > OUTBOX_LIMIT ? items.slice(items.length - OUTBOX_LIMIT) : items;
+  localStorage.setItem(key, JSON.stringify(trimmed));
 }
 
 export function useSyncManager(onlineUserId: string | null) {
@@ -80,7 +84,11 @@ export function useSyncManager(onlineUserId: string | null) {
         try {
           // eslint-disable-next-line no-console
           console.log('[sync] upsert payload', item.payload);
-          await saveHistoryRecord(onlineUserId, item.payload);
+          if (item.payload && item.payload.planned_total_problems) {
+            await saveIncompleteHistoryRecord(onlineUserId, item.payload);
+          } else {
+            await saveHistoryRecord(onlineUserId, item.payload);
+          }
           // eslint-disable-next-line no-console
           console.log('[sync] upsert ok for', item.client_id);
         } catch (e) {
@@ -90,7 +98,7 @@ export function useSyncManager(onlineUserId: string | null) {
           nextQueue.push(item); // 仅失败的留下重试
         }
       }
-      // 只保存失败队列，成功的从队列中移除
+      // 只保存失败队列，成功的从队列中移除；并在保存时应用上限裁剪
       saveOutbox(onlineUserId, nextQueue);
 
       // pull 全量（简单实现）

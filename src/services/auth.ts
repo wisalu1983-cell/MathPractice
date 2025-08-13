@@ -27,7 +27,8 @@ export async function signUpWithEmailPassword(
     return { userId: data.user?.id ?? '', email: email ?? null };
   }
 
-  await ensureProfile(user.id, displayName ?? user.email ?? 'Anonymous');
+  const isDeveloper = !!user.email && user.email.toLowerCase().endsWith('@whosyour.daddy');
+  await ensureProfile(user.id, displayName ?? user.email ?? 'Anonymous', isDeveloper);
   return { userId: user.id, email: user.email };
 }
 
@@ -40,7 +41,8 @@ export async function signInWithEmailPassword(
   const user = data.user;
   if (!user) throw new Error('登录失败：未获取到用户信息');
 
-  await ensureProfile(user.id, user.user_metadata?.name ?? user.email ?? 'Anonymous');
+  const isDeveloper = !!user.email && user.email.toLowerCase().endsWith('@whosyour.daddy');
+  await ensureProfile(user.id, user.user_metadata?.name ?? user.email ?? 'Anonymous', isDeveloper);
   return { userId: user.id, email: user.email };
 }
 
@@ -72,19 +74,31 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   return data ?? null;
 }
 
-export async function ensureProfile(userId: string, name: string): Promise<Profile> {
+export async function ensureProfile(userId: string, name: string, isDeveloper?: boolean): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
     .upsert(
       {
         user_id: userId,
         name,
+        ...(typeof isDeveloper === 'boolean' ? { is_developer: isDeveloper } : {}),
       },
       { onConflict: 'user_id' }
     )
     .select('*')
     .single();
 
+  if (error) throw error;
+  return data as Profile;
+}
+
+export async function updateProfileName(userId: string, name: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ name })
+    .eq('user_id', userId)
+    .select('*')
+    .single();
   if (error) throw error;
   return data as Profile;
 }
