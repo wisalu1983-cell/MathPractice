@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, LogIn, UserPlus, LogOut } from 'lucide-react';
 import { useOnlineAuth } from '../hooks/useOnlineAuth';
 
@@ -14,6 +14,23 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showSwitch, setShowSwitch] = useState(false);
+
+  // 打开弹窗时，清空输入，避免浏览器自动填充缓存账号（尤其是开发者邮箱）
+  useEffect(() => {
+    if (isOpen) {
+      setMode('login');
+      setEmail('');
+      setPassword('');
+      setDisplayName('');
+    }
+  }, [isOpen]);
+
+  // 切换到注册页时，如果邮箱是开发者域名，强制清空
+  useEffect(() => {
+    if (mode === 'register' && /@whosyour\.daddy$/i.test(email)) {
+      setEmail('');
+    }
+  }, [mode, email]);
 
   if (!isOpen) return null;
 
@@ -61,7 +78,7 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
                       <button
                         key={em}
                         className="w-full text-left px-3 py-2 rounded border hover:bg-gray-100 text-sm"
-                        onClick={() => { setEmail(em); setMode('login'); setShowSwitch(false); }}
+                        onClick={async () => { await signOut(); setMode('login'); setEmail(em); setShowSwitch(false); }}
                       >{em}</button>
                     ))}
                     {recentEmails.length === 0 && (
@@ -106,14 +123,26 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-sm text-gray-600 mb-1">邮箱</label>
+              {/* 反自动填充的隐藏字段 */}
+              <input type="text" name="fake-user" autoComplete="username" className="hidden" value={''} onChange={() => {}} />
+              <input type="password" name="fake-pass" autoComplete="new-password" className="hidden" value={''} onChange={() => {}} />
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="you@example.com"
+                autoComplete="off"
+                name={mode === 'register' ? 'reg-email' : 'login-email'}
+                inputMode="email"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                onFocus={() => {
+                  if (/@whosyour\\.daddy$/i.test(email)) setEmail('');
+                }}
               />
-              {recentEmails && recentEmails.length > 0 && (
+              {mode === 'login' && recentEmails && recentEmails.length > 0 && (
                 <div className="mt-2">
                   <div className="text-xs text-gray-500 mb-1">最近登录：</div>
                   <div className="flex flex-wrap gap-2">
@@ -138,6 +167,7 @@ export const OnlineAuthModal: React.FC<OnlineAuthModalProps> = ({ isOpen, onClos
                 onChange={e => setPassword(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="不少于 6 位"
+                autoComplete="new-password"
               />
             </div>
 

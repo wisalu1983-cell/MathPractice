@@ -42,7 +42,9 @@ export async function signInWithEmailPassword(
   if (!user) throw new Error('登录失败：未获取到用户信息');
 
   const isDeveloper = !!user.email && user.email.toLowerCase().endsWith('@whosyour.daddy');
-  await ensureProfile(user.id, user.user_metadata?.name ?? user.email ?? 'Anonymous', isDeveloper);
+  // 登录时仅当元数据里显式提供 name 才更新昵称，避免覆盖已修改的昵称
+  const nameFromMeta: string | undefined = user.user_metadata?.name;
+  await ensureProfile(user.id, nameFromMeta, isDeveloper);
   return { userId: user.id, email: user.email };
 }
 
@@ -74,22 +76,46 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   return data ?? null;
 }
 
-export async function ensureProfile(userId: string, name: string, isDeveloper?: boolean): Promise<Profile> {
-  const { data, error } = await supabase
+export async function ensureProfile(userId: string, name?: string, isDeveloper?: boolean): Promise<Profile> {
+  // 先查是否存在，避免无意覆盖昵称
+  const { data: existing, error: fetchError } = await supabase
     .from('profiles')
-    .upsert(
-      {
-        user_id: userId,
-        name,
-        ...(typeof isDeveloper === 'boolean' ? { is_developer: isDeveloper } : {}),
-      },
-      { onConflict: 'user_id' }
-    )
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+
+  if (existing) {
+    const updateFields: Partial<Profile> = {} as any;
+    if (typeof isDeveloper === 'boolean' && existing.is_developer !== isDeveloper) {
+      (updateFields as any).is_developer = isDeveloper;
+    }
+    if (typeof name === 'string' && name && existing.name !== name) {
+      (updateFields as any).name = name;
+    }
+    if (Object.keys(updateFields).length === 0) return existing as Profile;
+    const { data: updated, error: updateError } = await supabase
+      .from('profiles')
+      .update(updateFields)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+    if (updateError) throw updateError;
+    return updated as Profile;
+  }
+
+  const insertData: Partial<Profile> = {
+    user_id: userId,
+    name: name || 'Anonymous',
+  } as any;
+  if (typeof isDeveloper === 'boolean') (insertData as any).is_developer = isDeveloper;
+  const { data: created, error: insertError } = await supabase
+    .from('profiles')
+    .insert(insertData)
     .select('*')
     .single();
-
-  if (error) throw error;
-  return data as Profile;
+  if (insertError) throw insertError;
+  return created as Profile;
 }
 
 export async function updateProfileName(userId: string, name: string): Promise<Profile> {

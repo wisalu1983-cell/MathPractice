@@ -101,7 +101,9 @@ export function useOnlineAuth() {
     }
     if (data.user) {
       const isDev = !!data.user.email && data.user.email.toLowerCase().endsWith('@whosyour.daddy');
-      await ensureProfile(data.user.id, data.user.user_metadata?.name ?? data.user.email ?? 'Anonymous', isDev);
+      // 登录时仅在元数据包含 name 时更新昵称，避免覆盖已修改的昵称
+      const nameFromMeta: string | undefined = data.user.user_metadata?.name;
+      await ensureProfile(data.user.id, nameFromMeta, isDev);
       if (data.user.email && !isDev) saveRecentEmail(data.user.email);
     }
     setState(prev => ({

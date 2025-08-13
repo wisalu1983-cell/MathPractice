@@ -112,6 +112,10 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                         await updateProfileName(online.user!.id, trimmed);
                         setDisplayName(trimmed);
                         setShowDropdown(false);
+                        // 触发一次 getProfile 以确认已写入云端
+                        try {
+                          await getProfile(online.user!.id);
+                        } catch {}
                       } catch (e) {
                         // 失败静默，避免打断流程
                       }
