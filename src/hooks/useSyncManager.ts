@@ -36,6 +36,8 @@ export function useSyncManager(onlineUserId: string | null) {
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  // 注意：不要在此 hook 内部创建新的 history 管理实例，避免引用变动导致 flush 依赖抖动
+  // 在当前实现中，为保持简单仍引用一次，但我们不会把 history 放入 flush 的依赖数组，避免每次渲染重建回调
   const history = useHistoryManager();
 
   const enqueueRecord = useCallback((serverPayload: any) => {
@@ -100,19 +102,23 @@ export function useSyncManager(onlineUserId: string | null) {
         // eslint-disable-next-line no-console
         console.error('[sync] pull failed', e);
       }
+      // 仅当本次 flush 实际完成一次 push/pull 流程后更新
       setLastSyncAt(Date.now());
     } finally {
       setSyncing(false);
     }
-  }, [onlineUserId, syncing, isOnline, history]);
+  // 重要：不把 history 放进依赖，避免其引用变化触发 flush 重建
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineUserId, syncing, isOnline]);
 
   useEffect(() => {
     if (!onlineUserId) return;
     const onOnline = () => flush();
     window.addEventListener('online', onOnline);
+    // 初次登录/挂载时仅触发一次
     flush();
     return () => window.removeEventListener('online', onOnline);
-  }, [onlineUserId, flush]);
+  }, [onlineUserId]);
 
   return {
     enqueueRecord,

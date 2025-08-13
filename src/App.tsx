@@ -404,22 +404,15 @@ function App() {
               isDeveloper={userManager.isDeveloper()}
               onUserAction={handleUserAction}
               onGenerateTestData={() => setShowTestGenerator(true)}
+              onShowOnlineAuth={() => setShowOnlineAuth(true)}
+              onShowImportLocalHistory={() => setShowImportModal(true)}
+              onSyncNow={() => sync.flush()}
             />
 
-            {online.user && (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => sync.flush()}
-                  className="bg-white hover:bg-gray-50 text-blue-600 font-medium py-2 px-3 rounded-xl border border-gray-200 transition-colors duration-200"
-                >
-                  立即同步
-                </button>
-                {sync.lastSyncAt && (
-                  <span className="text-xs text-gray-500">
-                    上次同步 {new Date(sync.lastSyncAt).toLocaleTimeString('zh-CN', { hour12: false })}
-                  </span>
-                )}
-              </div>
+            {online.user && sync.lastSyncAt && (
+              <span className="text-xs text-gray-500">
+                上次同步 {new Date(sync.lastSyncAt).toLocaleTimeString('zh-CN', { hour12: false })}
+              </span>
             )}
             
             {currentView !== 'home' && (
@@ -432,14 +425,7 @@ function App() {
               </button>
             )}
 
-            {online.user && (
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-3 rounded-xl border border-gray-200"
-              >
-                导入本地历史
-              </button>
-            )}
+            {/* 常驻的“导入本地历史”按钮已移除：入口移动到设置菜单（在线状态） */}
           </div>
         </div>
 

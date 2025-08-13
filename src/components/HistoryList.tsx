@@ -463,20 +463,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                   重置日期
                 </button>
 
-                {/* 显示未完成记录开关 */}
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showIncomplete}
-                    onChange={(e) => {
-                      userToggledRef.current = true;
-                      setSelectedRecords(new Set());
-                      setShowIncomplete(e.target.checked);
-                    }}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                  显示未完成记录
-                </label>
+                {/* 移除重复的“显示未完成记录”开关，保留右上角的全局开关 */}
 
                 {/* 显示筛选结果数量 */}
                 <div className="text-sm text-gray-600">

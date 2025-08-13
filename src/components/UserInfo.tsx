@@ -9,6 +9,9 @@ interface UserInfoProps {
   isDeveloper: boolean;
   onUserAction: (action: UserAction) => void;
   onGenerateTestData?: () => void;
+  onShowOnlineAuth?: () => void;
+  onShowImportLocalHistory?: () => void;
+  onSyncNow?: () => void;
 }
 
 export const UserInfo: React.FC<UserInfoProps> = ({
@@ -16,7 +19,10 @@ export const UserInfo: React.FC<UserInfoProps> = ({
   isLoggedIn,
   isDeveloper,
   onUserAction,
-  onGenerateTestData
+  onGenerateTestData,
+  onShowOnlineAuth,
+  onShowImportLocalHistory,
+  onSyncNow
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const online = useOnlineAuth();
@@ -68,16 +74,32 @@ export const UserInfo: React.FC<UserInfoProps> = ({
             <div className="py-1">
               {/* 在线账户区域 */}
               {online.user ? (
-                <button
-                  onClick={() => { setShowDropdown(false); online.signOut(); }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
-                >
-                  <span className="mr-3">🔐</span>
-                  退出在线登录（{online.user.email}）
-                </button>
+                <>
+                  <button
+                    onClick={() => { setShowDropdown(false); online.signOut(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">🔐</span>
+                    退出在线登录（{online.user.email}）
+                  </button>
+                  <button
+                    onClick={() => { setShowDropdown(false); onSyncNow?.(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">🔄</span>
+                    立即同步
+                  </button>
+                  <button
+                    onClick={() => { setShowDropdown(false); onShowImportLocalHistory?.(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">⬆️</span>
+                    导入本地历史
+                  </button>
+                </>
               ) : (
                 <button
-                  onClick={() => handleActionClick('login')}
+                  onClick={() => { setShowDropdown(false); onShowOnlineAuth ? onShowOnlineAuth() : handleActionClick('login'); }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
                 >
                   <span className="mr-3">🔐</span>
