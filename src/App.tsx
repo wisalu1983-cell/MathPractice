@@ -15,7 +15,7 @@ import { TestDataGenerator } from './components/TestDataGenerator';
 import { OnlineAuthModal } from './components/OnlineAuthModal';
 import { useOnlineAuth } from './hooks/useOnlineAuth';
 import { useSyncManager } from './hooks/useSyncManager';
-import { ImportLocalHistoryModal } from './components/ImportLocalHistoryModal';
+
 
 const initialSession: GameSession = {
   currentProblem: null,
@@ -54,7 +54,7 @@ function App() {
   const [showOnlineAuth, setShowOnlineAuth] = useState(false);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
-  const [showImportModal, setShowImportModal] = useState(false);
+
 
   // 路由守卫：避免在渲染阶段触发 setState 导致循环
   useEffect(() => {
@@ -405,7 +405,7 @@ function App() {
               onUserAction={handleUserAction}
               onGenerateTestData={() => setShowTestGenerator(true)}
               onShowOnlineAuth={() => setShowOnlineAuth(true)}
-              onShowImportLocalHistory={() => setShowImportModal(true)}
+
               onSyncNow={() => sync.flush()}
             />
 
@@ -425,7 +425,7 @@ function App() {
               </button>
             )}
 
-            {/* 常驻的“导入本地历史”按钮已移除：入口移动到设置菜单（在线状态） */}
+
           </div>
         </div>
 
@@ -454,53 +454,7 @@ function App() {
           onClose={() => setShowOnlineAuth(false)}
         />
 
-        <ImportLocalHistoryModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          localUsers={userManager.users.filter(u => !u.isDeveloper)}
-          getLocalRecordCount={(uid) => historyManager.getLocalRecordCount(uid)}
-          onImportSelected={async (userIds) => {
-            // 将选中的本地用户的完成/未完成记录转为服务器 payload 入队
-            if (!online.user) return;
-            const completedRecords = userIds.flatMap(uid => historyManager.getUserRecords(uid));
-            const incompleteRecords = userIds.flatMap(uid => historyManager.getUserIncompleteRecords(uid));
-            const payloads = completedRecords.map(r => ({
-              client_id: r.id,
-              date: new Date(r.date).toISOString(),
-              problem_type: r.problemType,
-              difficulty: r.difficulty,
-              total_problems: r.totalProblems,
-              correct_answers: r.correctAnswers,
-              accuracy: r.accuracy,
-              total_time: r.totalTime,
-              average_time: r.averageTime,
-              problems: r.problems,
-              answers: r.answers,
-              answer_times: r.answerTimes,
-              score: r.score,
-            }));
-            const incompletePayloads = incompleteRecords.map(r => ({
-              client_id: r.id,
-              date: new Date(r.date).toISOString(),
-              problem_type: r.problemType,
-              difficulty: r.difficulty,
-              total_problems: r.totalProblems,
-              correct_answers: r.correctAnswers,
-              accuracy: r.accuracy,
-              total_time: r.totalTime,
-              average_time: r.averageTime,
-              problems: r.problems,
-              answers: r.answers,
-              answer_times: r.answerTimes,
-              score: r.score,
-              planned_total_problems: r.plannedTotalProblems,
-            }));
-            const added = sync.enqueueBatch([...payloads, ...incompletePayloads]);
-            // 立即尝试上行
-            if (added > 0) await sync.flush();
-            setShowImportModal(false);
-          }}
-        />
+
 
         <TestDataGenerator
           isOpen={showTestGenerator}

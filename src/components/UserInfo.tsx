@@ -11,7 +11,7 @@ interface UserInfoProps {
   onUserAction: (action: UserAction) => void;
   onGenerateTestData?: () => void;
   onShowOnlineAuth?: () => void;
-  onShowImportLocalHistory?: () => void;
+
   onSyncNow?: () => void;
 }
 
@@ -22,7 +22,7 @@ export const UserInfo: React.FC<UserInfoProps> = ({
   onUserAction,
   onGenerateTestData,
   onShowOnlineAuth,
-  onShowImportLocalHistory,
+
   onSyncNow
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -148,13 +148,7 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                     <span className="mr-3">🔄</span>
                     立即同步
                   </button>
-                  <button
-                    onClick={() => { setShowDropdown(false); onShowImportLocalHistory?.(); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-3">⬆️</span>
-                    导入本地历史
-                  </button>
+
                 </>
               ) : (
                 <button
