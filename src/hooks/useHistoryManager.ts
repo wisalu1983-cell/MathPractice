@@ -11,27 +11,37 @@ export const useHistoryManager = () => {
   // 监听refreshTrigger变化，强制重新读取localStorage
   useEffect(() => {
     if (refreshTrigger > 0) {
-      const storedRecords = localStorage.getItem('historyRecords');
-      if (storedRecords) {
-        try {
-          const parsedRecords = JSON.parse(storedRecords);
-          setHistoryRecords(parsedRecords);
-        } catch (error) {
-          console.error('Failed to refresh history records:', error);
+      try {
+        const storedRecords = localStorage.getItem('historyRecords');
+        if (storedRecords) {
+          try {
+            const parsedRecords = JSON.parse(storedRecords);
+            setHistoryRecords(parsedRecords);
+          } catch (parseError) {
+            console.error('Failed to parse history records:', parseError);
+            // 如果解析失败，清除损坏的数据
+            localStorage.removeItem('historyRecords');
+            setHistoryRecords([]);
+          }
         }
-      }
 
-      const storedIncomplete = localStorage.getItem('incompleteHistoryRecords');
-      if (storedIncomplete) {
-        try {
-          const parsedIncomplete = JSON.parse(storedIncomplete);
-          setIncompleteHistoryRecords(parsedIncomplete);
-        } catch (error) {
-          console.error('Failed to refresh incomplete history records:', error);
+        const storedIncomplete = localStorage.getItem('incompleteHistoryRecords');
+        if (storedIncomplete) {
+          try {
+            const parsedIncomplete = JSON.parse(storedIncomplete);
+            setIncompleteHistoryRecords(parsedIncomplete);
+          } catch (parseError) {
+            console.error('Failed to parse incomplete history records:', parseError);
+            // 如果解析失败，清除损坏的数据
+            localStorage.removeItem('incompleteHistoryRecords');
+            setIncompleteHistoryRecords([]);
+          }
         }
+      } catch (error) {
+        console.error('Failed to refresh records from localStorage:', error);
       }
     }
-  }, [refreshTrigger, setHistoryRecords, setIncompleteHistoryRecords]);
+  }, [refreshTrigger]); // 移除setHistoryRecords和setIncompleteHistoryRecords依赖，避免无限循环
 
   // 保存单条答题记录
   const saveRecord = useCallback((session: GameSession, userId: string): string => {

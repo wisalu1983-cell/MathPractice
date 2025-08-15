@@ -16,15 +16,33 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       if (value instanceof Function) {
         setStoredValue(prev => {
           const valueToStore = (value as (val: T) => T)(prev);
-          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          try {
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          } catch (storageError) {
+            console.error(`Error setting localStorage key "${key}":`, storageError);
+            // 如果是配额超出错误，尝试清理一些数据
+            if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+              console.warn('localStorage quota exceeded, attempting to free space...');
+              // 可以在这里添加清理逻辑，比如删除旧的数据
+            }
+          }
           return valueToStore;
         });
       } else {
         setStoredValue(value);
-        window.localStorage.setItem(key, JSON.stringify(value));
+        try {
+          window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (storageError) {
+          console.error(`Error setting localStorage key "${key}":`, storageError);
+          // 如果是配额超出错误，尝试清理一些数据
+          if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+            console.warn('localStorage quota exceeded, attempting to free space...');
+            // 可以在这里添加清理逻辑，比如删除旧的数据
+          }
+        }
       }
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(`Error in setValue for localStorage key "${key}":`, error);
     }
   };
 
