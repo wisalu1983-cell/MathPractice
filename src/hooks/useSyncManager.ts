@@ -124,14 +124,18 @@ export function useSyncManager(onlineUserId: string | null) {
     return added;
   }, [onlineUserId]);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!onlineUserId || syncing || !isOnline) {
       logSyncProcess('flush_skip', { 
         onlineUserId: !!onlineUserId, 
         syncing, 
         isOnline 
       }, onlineUserId || undefined);
-      return;
+      return { 
+        success: false, 
+        message: !onlineUserId ? '未登录在线账户' : 
+                syncing ? '正在同步中' : '网络未连接'
+      };
     }
     
     const startTime = Date.now();
@@ -182,6 +186,8 @@ export function useSyncManager(onlineUserId: string | null) {
         timestamp: Date.now()
       });
       
+      return { success: true, message: '同步成功完成' };
+      
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : '同步失败';
@@ -222,6 +228,8 @@ export function useSyncManager(onlineUserId: string | null) {
           });
         }
       }
+      
+      return { success: false, message: errorMessage };
       
     } finally {
       // 清理超时定时器
@@ -369,7 +377,7 @@ export function useSyncManager(onlineUserId: string | null) {
       
       try {
         const start = Date.now();
-        const response = await fetch('/favicon.ico', { 
+        const response = await fetch('/', { 
           method: 'HEAD',
           cache: 'no-cache',
           signal: AbortSignal.timeout(5000) // 5秒超时
@@ -378,7 +386,10 @@ export function useSyncManager(onlineUserId: string | null) {
         
         // 简单的网络质量评估
         const isGoodConnection = response.ok && duration < 2000;
-        console.log(`[sync] 网络质量检测: ${isGoodConnection ? '良好' : '较差'} (${duration}ms)`);
+        // 减少网络质量检测的日志频率，只在质量差时输出
+        if (!isGoodConnection) {
+          console.log(`[sync] 网络质量检测: 较差 (${duration}ms)`);
+        }
         return isGoodConnection;
       } catch (error) {
         console.warn('[sync] 网络质量检测失败:', error);
@@ -386,24 +397,30 @@ export function useSyncManager(onlineUserId: string | null) {
       }
     };
     
-    // 智能同步：只在网络质量良好时进行
+    // 智能同步：只在网络质量良好时进行，并且避免频繁触发
     const intelligentSync = async () => {
+      // 检查是否需要同步（有待同步的数据）
+      const outbox = loadOutbox(onlineUserId);
+      if (outbox.length === 0) {
+        return; // 没有待同步数据，跳过
+      }
+      
       const isGoodNetwork = await checkNetworkQuality();
       if (isGoodNetwork) {
         flush();
       } else {
         console.log('[sync] 网络质量不佳，延迟同步');
-        // 可以在这里设置延迟重试
       }
     };
     
     window.addEventListener('online', onOnline);
     
-    // 初次登录/挂载时触发智能同步
-    intelligentSync();
+    // 延迟执行初次同步，避免页面加载时立即执行
+    const initialSyncTimer = setTimeout(intelligentSync, 2000);
     
     return () => {
       window.removeEventListener('online', onOnline);
+      clearTimeout(initialSyncTimer);
     };
   }, [onlineUserId, debouncedFlush, flush]);
 

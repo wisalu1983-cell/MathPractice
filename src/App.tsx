@@ -14,6 +14,7 @@ import { Home } from 'lucide-react';
 import { TestDataGenerator } from './components/TestDataGenerator';
 import { OnlineAuthModal } from './components/OnlineAuthModal';
 import { TestPanel } from './components/TestPanel';
+import { SimplifiedTestPanel } from './components/SimplifiedTestPanel';
 import { useOnlineAuth } from './hooks/useOnlineAuth';
 import { useSyncManager } from './hooks/useSyncManager';
 import { getProfile } from './services/auth';
@@ -56,6 +57,7 @@ function App() {
   const [showTestGenerator, setShowTestGenerator] = useState(false);
   const [showOnlineAuth, setShowOnlineAuth] = useState(false);
   const [showTestPanel, setShowTestPanel] = useState(false);
+  const [showSimplifiedTestPanel, setShowSimplifiedTestPanel] = useState(false);
   const [onlineUserDisplayName, setOnlineUserDisplayName] = useState<string | null>(null);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
@@ -423,14 +425,15 @@ function App() {
           
           <div className="flex items-center space-x-4">
             <UserInfo
-              userName={userManager.getCurrentUserName()}
-              isLoggedIn={userManager.isLoggedIn()}
-              isDeveloper={userManager.isDeveloper()}
+              userName={online.user ? (onlineUserDisplayName || online.user.email || 'Online User') : userManager.getCurrentUserName()}
+              isLoggedIn={online.user ? true : userManager.isLoggedIn()}
+              isDeveloper={online.isDeveloper || userManager.isDeveloper()}
               onUserAction={handleUserAction}
               onGenerateTestData={() => setShowTestGenerator(true)}
               onShowOnlineAuth={() => setShowOnlineAuth(true)}
               onSyncNow={() => sync.flush()}
               onShowTestPanel={() => setShowTestPanel(true)}
+              onShowSimplifiedTestPanel={() => setShowSimplifiedTestPanel(true)}
             />
 
             {online.user && sync.lastSyncAt && (
@@ -489,11 +492,19 @@ function App() {
           clearUserRecords={historyManager.clearUserRecords}
           upsertIncompleteRecord={historyManager.upsertIncompleteRecord}
           clearUserIncompleteRecords={historyManager.clearUserIncompleteRecords}
+          onSyncNow={sync.flush}
         />
 
         <TestPanel
           isOpen={showTestPanel}
           onClose={() => setShowTestPanel(false)}
+        />
+
+        <SimplifiedTestPanel
+          isOpen={showSimplifiedTestPanel}
+          onClose={() => setShowSimplifiedTestPanel(false)}
+          isOnline={navigator.onLine ?? true}
+          onlineUserId={online.user?.id ?? null}
         />
       </div>
     </div>

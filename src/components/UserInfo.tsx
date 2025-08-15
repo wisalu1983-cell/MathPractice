@@ -13,6 +13,7 @@ interface UserInfoProps {
   onShowOnlineAuth?: () => void;
   onSyncNow?: () => void;
   onShowTestPanel?: () => void;
+  onShowSimplifiedTestPanel?: () => void;
 }
 
 export const UserInfo: React.FC<UserInfoProps> = ({
@@ -23,7 +24,8 @@ export const UserInfo: React.FC<UserInfoProps> = ({
   onGenerateTestData,
   onShowOnlineAuth,
   onSyncNow,
-  onShowTestPanel
+  onShowTestPanel,
+  onShowSimplifiedTestPanel
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -33,19 +35,24 @@ export const UserInfo: React.FC<UserInfoProps> = ({
 
   // 拉取在线昵称
   React.useEffect(() => {
-    let mounted = true;
-    if (!online.user) {
+    if (isLoggedIn && online.user) {
+      // 如果没有传入用户名，才主动获取，避免与App.tsx重复请求
+      if (!userName || userName === 'Online User') {
+        let mounted = true;
+        getProfile(online.user.id)
+          .then(p => {
+            if (!mounted) return;
+            setDisplayName(p?.name ?? null);
+          })
+          .catch(() => {});
+        return () => { mounted = false; };
+      } else {
+        setDisplayName(userName);
+      }
+    } else {
       setDisplayName(null);
-      return;
     }
-    getProfile(online.user.id)
-      .then(p => {
-        if (!mounted) return;
-        setDisplayName(p?.name ?? null);
-      })
-      .catch(() => {});
-    return () => { mounted = false; };
-  }, [online.user]);
+  }, [online.user, userName, isLoggedIn]);
 
   const handleActionClick = (action: UserAction) => {
     setShowDropdown(false);
@@ -226,6 +233,20 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                 >
                   <span className="mr-3">🐛</span>
                   测试面板
+                </button>
+              )}
+
+              {/* 简化同步测试面板：开发者可见 */}
+              {isDev && online.user && onShowSimplifiedTestPanel && (
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onShowSimplifiedTestPanel();
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                >
+                  <span className="mr-3">🔄</span>
+                  同步测试
                 </button>
               )}
             </div>

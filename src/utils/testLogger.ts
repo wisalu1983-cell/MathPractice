@@ -344,22 +344,22 @@ class TestLogger {
   }
 
   private outputToConsole(entry: TestLogEntry): void {
-    const timestamp = new Date(entry.timestamp).toLocaleTimeString();
-    const prefix = `[TEST-${entry.type.toUpperCase()}] ${timestamp}`;
-    
-    switch (entry.level) {
-      case 'error':
-        console.error(`%c${prefix}%c ${entry.message}`, 'color: red; font-weight: bold', 'color: red', entry.data);
-        break;
-      case 'warn':
-        console.warn(`%c${prefix}%c ${entry.message}`, 'color: orange; font-weight: bold', 'color: orange', entry.data);
-        break;
-      case 'info':
-        console.info(`%c${prefix}%c ${entry.message}`, 'color: blue; font-weight: bold', 'color: blue', entry.data);
-        break;
-      case 'debug':
-        console.log(`%c${prefix}%c ${entry.message}`, 'color: gray; font-weight: bold', 'color: gray', entry.data);
-        break;
+    // 只在开发模式下输出重要日志到控制台，减少噪音
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      // 只输出错误和警告，过滤掉过多的调试信息
+      if (entry.level === 'error' || entry.level === 'warn') {
+        const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+        const prefix = `[TEST-${entry.type.toUpperCase()}] ${timestamp}`;
+        
+        switch (entry.level) {
+          case 'error':
+            console.error(`%c${prefix}%c ${entry.message}`, 'color: red; font-weight: bold', 'color: red', entry.data);
+            break;
+          case 'warn':
+            console.warn(`%c${prefix}%c ${entry.message}`, 'color: orange; font-weight: bold', 'color: orange', entry.data);
+            break;
+        }
+      }
     }
   }
 
