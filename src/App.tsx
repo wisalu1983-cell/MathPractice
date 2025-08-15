@@ -50,6 +50,9 @@ function App() {
 
   const userManager = useUserManager();
   const historyManager = useHistoryManager();
+  // 直接订阅historyManager的状态，确保UI能响应数据变化
+  const allHistoryRecords = historyManager.historyRecords;
+  const allIncompleteRecords = historyManager.incompleteHistoryRecords;
   const [showUserModal, setShowUserModal] = useState(false);
   const [userAction, setUserAction] = useState<UserAction>('login');
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -61,6 +64,78 @@ function App() {
   const [onlineUserDisplayName, setOnlineUserDisplayName] = useState<string | null>(null);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
+
+  // 🔄 用户登录后检查并同步本地未上传的未完成记录（修复无限循环）
+  useEffect(() => {
+    if (!online.user) return;
+    
+    // 使用一个 ref 来避免重复执行
+    let hasExecuted = false;
+    
+    const syncUnuploadedIncompleteRecords = async () => {
+      if (hasExecuted) return;
+      hasExecuted = true;
+      
+      console.log('[App] 🔍 检查本地未上传的未完成记录...');
+      
+      try {
+        // 获取当前用户的所有本地未完成记录
+        const localIncompleteRecords = historyManager.incompleteHistoryRecords;
+        const unuploadedRecords = localIncompleteRecords.filter(record => 
+          record.userId === online.user!.id && !record.synced
+        );
+        
+        if (unuploadedRecords.length === 0) {
+          console.log('[App] ✅ 没有待上传的未完成记录');
+          return;
+        }
+        
+        console.log(`[App] 📤 发现${unuploadedRecords.length}条未上传的未完成记录，开始同步...`);
+        
+        for (const record of unuploadedRecords) {
+          try {
+            const payload = {
+              client_id: record.sessionId,
+              date: new Date(record.timestamp).toISOString(),
+              problem_type: record.problemType,
+              difficulty: record.difficulty,
+              total_problems: record.totalProblems,
+              correct_answers: record.correctAnswers,
+              accuracy: record.accuracy,
+              total_time: record.totalTime,
+              average_time: record.averageTime,
+              problems: record.problems,
+              answers: record.answers,
+              answer_times: record.answerTimes,
+              score: record.score,
+              planned_total_problems: record.plannedTotalProblems
+            };
+            
+            console.log(`[App] 📤 上传未完成记录: ${record.sessionId}`);
+            sync.enqueueRecord(payload);
+            await sync.flush();
+            
+            // 标记为已同步
+            historyManager.markIncompleteRecordAsSynced(record.sessionId);
+            console.log(`[App] ✅ 未完成记录已上传并标记: ${record.sessionId}`);
+            
+          } catch (error) {
+            console.error(`[App] ❌ 上传未完成记录失败: ${record.sessionId}`, error);
+            // 失败的记录保持未同步状态，下次继续尝试
+          }
+        }
+      } catch (error) {
+        console.error('[App] ❌ 同步未完成记录过程中发生错误:', error);
+      }
+    };
+
+    // 延迟执行，确保其他初始化完成
+    const timeoutId = setTimeout(syncUnuploadedIncompleteRecords, 1500);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [online.user?.id]); // 只依赖用户ID，避免对象引用变化导致的无限循环
 
 
   // 路由守卫：避免在渲染阶段触发 setState 导致循环
@@ -91,12 +166,36 @@ function App() {
 
   // 当游戏结束时自动保存记录
   useEffect(() => {
-    if (session.isCompleted && !isRecordSaved && userManager.currentUser && currentView === 'result') {
-      const recordId = historyManager.saveRecord(session, userManager.currentUser.id);
-      // 若在线，组装服务端 payload 入队（最小实现：字段名转下划线 + client_id）
+    console.log('[App] useEffect triggered:', {
+      isCompleted: session.isCompleted,
+      isRecordSaved: isRecordSaved,
+      sessionId: session.sessionId,
+      currentView: currentView
+    });
+    
+    if (session.isCompleted && !isRecordSaved) {
+      const activeUserId = online.user?.id || userManager.currentUser?.id;
+      
+      if (!activeUserId) {
+        console.warn('No active user found for saving record');
+        setIsRecordSaved(true);
+        return;
+      }
+
+      console.log('[App] 🎯 游戏完成，开始保存记录，sessionId:', session.sessionId);
+      const recordId = historyManager.saveRecord(session, activeUserId);
+      
+      // 清理本地未完成记录（游戏完成后不再需要）
+      if (session.sessionId) {
+        historyManager.removeIncompleteBySession(session.sessionId);
+        console.log('[App] 已清理本地未完成记录');
+      }
+      
+      // 同步完成记录到云端
       if (online.user) {
+        const completedClientId = session.sessionId || recordId;
         const payload = {
-          client_id: recordId,
+          client_id: completedClientId,
           date: new Date((session.endTime || Date.now())).toISOString(),
           problem_type: session.problemType!,
           difficulty: session.difficulty!,
@@ -109,14 +208,16 @@ function App() {
           answers: session.answers,
           answer_times: session.answerTimes,
           score: session.score,
-        } as const;
+        };
+        
+        console.log('[App] 📤 同步完成记录到云端:', payload);
         sync.enqueueRecord(payload);
-        // 立即尝试上行
         sync.flush();
       }
-      setIsRecordSaved(true); // 标记为已保存
+      
+      setIsRecordSaved(true);
     }
-  }, [session.isCompleted, isRecordSaved, userManager.currentUser, currentView, historyManager, online.user, sync]);
+  }, [session.isCompleted, isRecordSaved, historyManager, online.user, userManager.currentUser, sync]);
 
   // 暂不做“未完成记录”续玩，移除周期性保存与 beforeunload 钩子
 
@@ -191,10 +292,17 @@ function App() {
     };
 
     setSession(updatedSession);
-    // 增量保存未完成记录快照
+    // 增量保存未完成记录快照（仅本地保存，减少云端同步频率）
     {
       const userId = online.user?.id || userManager.currentUser?.id;
-      if (userId) historyManager.upsertIncompleteRecord(updatedSession, userId);
+      if (userId) {
+        historyManager.upsertIncompleteRecord(updatedSession, userId);
+        
+        // 🎯 关键修复：答题过程中只在本地保存未完成记录，不同步云端
+        // 避免在最后一题时产生云端未完成记录，导致与完成记录重复
+        const answeredCount = updatedSession.answers.filter(a => a !== undefined).length;
+        console.log(`[App] 第${answeredCount}题完成，已保存到本地（未完成记录不同步云端，避免重复）`);
+      }
     }
   };
 
@@ -202,6 +310,7 @@ function App() {
     const nextIndex = session.currentIndex + 1;
     
     if (nextIndex >= session.problems.length) {
+      // 游戏完成：不需要删除云端未完成记录，因为答题过程中不会产生云端未完成记录
       setSession(prev => ({
         ...prev,
         isCompleted: true,
@@ -227,10 +336,45 @@ function App() {
   };
 
   const resetGame = () => {
-    // 若正在进行但未完成，返回首页前先保存一次“未完成进度”快照
+    // 若正在进行但未完成，返回首页前先保存一次"未完成进度"快照
     if (session.isActive && !session.isCompleted) {
       const userId = online.user?.id || userManager.currentUser?.id;
-      if (userId) historyManager.upsertIncompleteRecord(session, userId);
+      if (userId) {
+        historyManager.upsertIncompleteRecord(session, userId);
+        
+        // 恢复：游戏中断时同步未完成记录到云端，用于记录用户放弃情况
+        if (online.user) {
+          const answeredCount = session.answers.filter(a => a !== undefined).length;
+          const totalTime = session.answerTimes.filter(t => typeof t === 'number').reduce((s, t) => s + (t || 0), 0);
+          const averageTime = answeredCount > 0 ? Math.round(totalTime / answeredCount) : 0;
+          
+          const clientId = session.sessionId;
+          if (!clientId) {
+            console.error('[App] sessionId未设置，跳过未完成记录同步');
+            return;
+          }
+          const incompletePayload = {
+            client_id: clientId,
+            date: new Date().toISOString(),
+            problem_type: session.problemType!,
+            difficulty: session.difficulty!,
+            total_problems: answeredCount,
+            correct_answers: session.correctAnswers,
+            accuracy: answeredCount > 0 ? Math.round((session.correctAnswers / answeredCount) * 100) : 0,
+            total_time: totalTime,
+            average_time: averageTime,
+            problems: session.problems,
+            answers: session.answers,
+            answer_times: session.answerTimes,
+            score: session.score,
+            planned_total_problems: session.totalProblems
+          } as const;
+          
+          console.log('[App] 游戏中断，同步未完成记录到云端:', incompletePayload);
+          sync.enqueueRecord(incompletePayload);
+          sync.flush();
+        }
+      }
     }
     setSession(initialSession);
     setShowResult(false);
@@ -370,11 +514,16 @@ function App() {
                 lastLoginAt: Date.now(),
               }
             : userManager.currentUser!;
+            
+          // 使用响应式状态过滤用户记录，确保数据同步后UI立即更新
+          const userHistoryRecords = allHistoryRecords.filter(r => r.userId === historyUser.id);
+          const userIncompleteRecords = allIncompleteRecords.filter(r => r.userId === historyUser.id);
+          
           return (
             <HistoryList
               user={historyUser}
-              records={historyManager.getUserRecords(historyUser.id)}
-              incompleteRecords={historyManager.getUserIncompleteRecords(historyUser.id)}
+              records={userHistoryRecords}
+              incompleteRecords={userIncompleteRecords}
               onBack={handleBackFromHistoryList}
               onViewRecord={handleViewHistoryRecord}
             />

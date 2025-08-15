@@ -244,14 +244,21 @@ export const useHistoryManager = () => {
         answers: session.answers,
         answerTimes: session.answerTimes,
         score: session.score,
-        plannedTotalProblems: session.totalProblems
+        plannedTotalProblems: session.totalProblems,
+        synced: false, // 新记录默认未同步
+        timestamp: now // 记录创建时间
       };
 
       setIncompleteHistoryRecords(prev => {
         const idx = prev.findIndex(r => r.sessionId === record.sessionId && r.userId === userId);
         if (idx >= 0) {
           const cloned = prev.slice();
-          cloned[idx] = record;
+          // 更新时保留已有的 synced 状态（如果存在）
+          const existingRecord = cloned[idx];
+          cloned[idx] = {
+            ...record,
+            synced: existingRecord.synced ?? false // 保留原有同步状态或默认为 false
+          };
           return cloned;
         }
         return [record, ...prev];
@@ -363,6 +370,130 @@ export const useHistoryManager = () => {
     },
     clearUserIncompleteRecords: (userId: string) => {
       setIncompleteHistoryRecords(prev => prev.filter(r => r.userId !== userId));
+      return true;
+    },
+    // 合并服务端未完成记录
+    mergeServerIncompleteRecords: (serverRecords: any[], userId: string) => {
+      console.log(`[mergeServerIncompleteRecords] 开始合并 ${serverRecords.length} 条服务端未完成记录`);
+      console.log(`[mergeServerIncompleteRecords] 服务端记录详情:`, serverRecords);
+      
+      // 预先处理数据并计算affected
+      const processedData = (() => {
+        const current = incompleteHistoryRecords;
+        console.log(`[mergeServerIncompleteRecords] 当前本地记录数: ${current.length}`);
+        
+        const byClientId = new Map(current.map(r => [r.id, r]));
+        const updates = new Map();
+        const toAppend: IncompleteHistoryRecord[] = [];
+        let affected = 0;
+        
+        for (const serverRecord of serverRecords) {
+          const clientId = serverRecord.client_id;
+          console.log(`[mergeServerIncompleteRecords] 处理记录 client_id: ${clientId}`);
+          
+          if (!clientId) {
+            console.warn(`[mergeServerIncompleteRecords] 跳过无client_id记录:`, serverRecord);
+            continue;
+          }
+          
+          // 转换服务端记录格式到本地格式
+          const canonical: IncompleteHistoryRecord = {
+            id: clientId,
+            sessionId: clientId,
+            userId: userId,
+            date: new Date(serverRecord.date).getTime(),
+            problemType: serverRecord.problem_type,
+            difficulty: serverRecord.difficulty,
+            totalProblems: serverRecord.total_problems,
+            correctAnswers: serverRecord.correct_answers,
+            accuracy: serverRecord.accuracy,
+            totalTime: serverRecord.total_time,
+            averageTime: serverRecord.average_time,
+            problems: serverRecord.problems,
+            answers: serverRecord.answers,
+            answerTimes: serverRecord.answer_times,
+            score: serverRecord.score,
+            plannedTotalProblems: serverRecord.planned_total_problems,
+            synced: true, // 从服务端拉取的记录标记为已同步
+            timestamp: new Date(serverRecord.date).getTime() // 使用服务端时间作为时间戳
+          };
+          
+          console.log(`[mergeServerIncompleteRecords] 转换后的记录:`, canonical);
+          
+          const local = byClientId.get(clientId);
+          if (local) {
+            console.log(`[mergeServerIncompleteRecords] 找到本地记录:`, local);
+            if (local.userId !== userId) {
+              console.warn(`[mergeServerIncompleteRecords] 冲突: 本地记录 ${local.id} 已属于用户 ${local.userId}, 但服务端记录属于 ${userId}`);
+              continue;
+            } else {
+              // 同一账号下，检查数据是否需要更新
+              const needsUpdate = (
+                local.date !== canonical.date ||
+                local.score !== canonical.score ||
+                local.correctAnswers !== canonical.correctAnswers ||
+                local.totalProblems !== canonical.totalProblems ||
+                local.accuracy !== canonical.accuracy ||
+                local.totalTime !== canonical.totalTime ||
+                local.synced !== canonical.synced
+              );
+              
+              console.log(`[mergeServerIncompleteRecords] 是否需要更新: ${needsUpdate}`);
+              if (needsUpdate) {
+                // 优先使用最新的数据（基于日期）
+                if (canonical.date >= local.date) {
+                  updates.set(clientId, canonical);
+                  affected += 1;
+                  console.log(`[mergeServerIncompleteRecords] 更新本地记录: ${clientId}`);
+                } else {
+                  console.log(`[mergeServerIncompleteRecords] 保留本地较新数据: ${clientId}`);
+                }
+              } else {
+                console.log(`[mergeServerIncompleteRecords] 记录无需更新: ${clientId}`);
+              }
+            }
+          } else {
+            // 新数据，直接添加
+            console.log(`[mergeServerIncompleteRecords] 添加新记录: ${clientId}`);
+            toAppend.push(canonical);
+            affected += 1;
+          }
+        }
+        
+        console.log(`[mergeServerIncompleteRecords] 待更新: ${updates.size}, 待添加: ${toAppend.length}`);
+        
+        return { updates, toAppend, affected };
+      })();
+      
+      const { updates, toAppend, affected } = processedData;
+      
+      if (updates.size === 0 && toAppend.length === 0) {
+        console.log(`[mergeServerIncompleteRecords] 无变化，不更新状态`);
+        return 0;
+      }
+      
+      // 只有在有变化时才更新状态
+      setIncompleteHistoryRecords(prev => {
+        const next = prev.map(r => updates.get(r.id) ?? r);
+        if (toAppend.length > 0) next.unshift(...toAppend);
+        console.log(`[mergeServerIncompleteRecords] 合并后记录数: ${next.length}`);
+        return next;
+      });
+      
+      console.log(`[mergeServerIncompleteRecords] 合并完成，影响 ${affected} 条记录`);
+      return affected;
+    },
+    // 标记未完成记录为已同步
+    markIncompleteRecordAsSynced: (sessionId: string) => {
+      setIncompleteHistoryRecords(prev => {
+        const updated = prev.map(record => {
+          if (record.sessionId === sessionId) {
+            return { ...record, synced: true };
+          }
+          return record;
+        });
+        return updated;
+      });
       return true;
     }
   };

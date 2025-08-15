@@ -73,7 +73,7 @@ export interface HistoryRecord {
 }
 
 // 未完成记录：与 HistoryRecord 结构基本一致，但含有 sessionId 以及 plannedTotalProblems，
-// totalProblems 表示“已作答题数”，用于沿用现有统计/筛选逻辑。
+// totalProblems 表示"已作答题数"，用于沿用现有统计/筛选逻辑。
 export interface IncompleteHistoryRecord {
   id: string; // 一般与 sessionId 相同，便于去重/更新
   sessionId: string;
@@ -91,6 +91,8 @@ export interface IncompleteHistoryRecord {
   answerTimes: number[];
   score: number; // 当前累计得分
   plannedTotalProblems: number; // 本次计划的总题数
+  synced?: boolean; // 是否已同步到云端，默认 false
+  timestamp: number; // 记录创建时间戳
 }
 
 // 用户管理相关类型

@@ -1,0 +1,585 @@
+{
+  "sessionId": "test_1755248628518_5s9rfu",
+  "timestamp": 1755248904963,
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+  "url": "http://localhost:5177/",
+  "logs": [
+    {
+      "type": "state",
+      "level": "info",
+      "message": "应用启动，测试日志器初始化完成",
+      "timestamp": 1755248628519,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248631026
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248631026,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248641245
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248641245,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248651592
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248651592,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248664804
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248664804,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248675006
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248675006,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248685204
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248685204,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248695413
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248695413,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248705644
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248705644,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248715916
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248715916,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248726174
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248726174,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248736658
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248736658,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248746878
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248746878,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248757109
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248757109,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 4,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248767328
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248767328,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: enqueue_start",
+      "data": {
+        "phase": "enqueue_start",
+        "details": {
+          "client_id": "1755248778048_2sneae"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784291
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784291,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "storage",
+      "level": "debug",
+      "message": "存储操作: set sync_outbox_05f186fe-0b49-4681-95c0-25da5235257a",
+      "data": {
+        "operation": "set",
+        "key": "sync_outbox_05f186fe-0b49-4681-95c0-25da5235257a",
+        "value": "[Object]",
+        "storageSize": 26449
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784291,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: enqueue_success",
+      "data": {
+        "phase": "enqueue_success",
+        "details": {
+          "client_id": "1755248778048_2sneae",
+          "queue_length": 1,
+          "payload_size": 1129
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784291
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784291,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: flush_start",
+      "data": {
+        "phase": "flush_start",
+        "details": {
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+          "timestamp": 1755248784291,
+          "networkStatus": true
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784291
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784291,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 4,
+          "incompleteRecords": 5,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 1,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784767
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784767,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: flush_success",
+      "data": {
+        "phase": "flush_success",
+        "details": {
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+          "duration": 476,
+          "timestamp": 1755248784767
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784767
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784767,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: enqueue_start",
+      "data": {
+        "phase": "enqueue_start",
+        "details": {
+          "client_id": "1755248778048_2sneae"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784819
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784819,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "storage",
+      "level": "debug",
+      "message": "存储操作: set sync_outbox_05f186fe-0b49-4681-95c0-25da5235257a",
+      "data": {
+        "operation": "set",
+        "key": "sync_outbox_05f186fe-0b49-4681-95c0-25da5235257a",
+        "value": "[Object]",
+        "storageSize": 26790
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784819,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: enqueue_success",
+      "data": {
+        "phase": "enqueue_success",
+        "details": {
+          "client_id": "1755248778048_2sneae",
+          "queue_length": 1,
+          "payload_size": 1102
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784819
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784819,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: flush_start",
+      "data": {
+        "phase": "flush_start",
+        "details": {
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+          "timestamp": 1755248784819,
+          "networkStatus": true
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248784819
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248784819,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 5,
+          "incompleteRecords": 5,
+          "mergedCompleted": 1,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248785191
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248785191,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: flush_success",
+      "data": {
+        "phase": "flush_success",
+        "details": {
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+          "duration": 373,
+          "timestamp": 1755248785192
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248785192
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248785192,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 5,
+          "incompleteRecords": 5,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 1,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248795603
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248795603,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 5,
+          "incompleteRecords": 5,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248885533
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248885533,
+      "sessionId": "test_1755248628518_5s9rfu"
+    },
+    {
+      "type": "sync",
+      "level": "info",
+      "message": "同步阶段: pull_success",
+      "data": {
+        "phase": "pull_success",
+        "details": {
+          "completedRecords": 5,
+          "incompleteRecords": 5,
+          "mergedCompleted": 0,
+          "mergedIncomplete": 0,
+          "userId": "05f186fe-0b49-4681-95c0-25da5235257a"
+        },
+        "onlineStatus": true,
+        "timestamp": 1755248903095
+      },
+      "userId": "05f186fe-0b49-4681-95c0-25da5235257a",
+      "timestamp": 1755248903095,
+      "sessionId": "test_1755248628518_5s9rfu"
+    }
+  ],
+  "networkRequests": [],
+  "summary": {
+    "totalLogs": 30,
+    "logsByType": {
+      "sync": 27,
+      "network": 0,
+      "state": 1,
+      "user": 0,
+      "storage": 2,
+      "error": 0
+    },
+    "errorCount": 0,
+    "networkRequests": {
+      "total": 0,
+      "successful": 0,
+      "failed": 0
+    },
+    "timeRange": {
+      "start": 1755248628519,
+      "end": 1755248903095
+    }
+  }
+}

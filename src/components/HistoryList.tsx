@@ -47,22 +47,24 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
   // 将未完成记录映射为用于展示/统计的结构
   const mappedIncomplete: HistoryRecord[] = useMemo(() => {
-    return incompleteRecords.map((r) => ({
-      id: r.id,
-      userId: r.userId,
-      date: r.date,
-      problemType: r.problemType,
-      difficulty: r.difficulty,
-      totalProblems: r.totalProblems,
-      correctAnswers: r.correctAnswers,
-      accuracy: r.accuracy,
-      totalTime: r.totalTime,
-      averageTime: r.averageTime,
-      problems: r.problems,
-      answers: r.answers,
-      answerTimes: r.answerTimes,
-      score: r.score,
-    }));
+    return incompleteRecords
+      .filter((r) => r && r.id && r.sessionId) // 过滤掉无效记录
+      .map((r, index) => ({
+        id: `incomplete_${r.sessionId}_${index}`, // 使用前缀避免与完成记录ID冲突
+        userId: r.userId,
+        date: r.date || r.timestamp || Date.now(), // 兼容不同的时间字段
+        problemType: r.problemType,
+        difficulty: r.difficulty,
+        totalProblems: r.totalProblems || 0,
+        correctAnswers: r.correctAnswers || 0,
+        accuracy: r.accuracy || 0,
+        totalTime: r.totalTime || 0,
+        averageTime: r.averageTime || 0,
+        problems: r.problems || [],
+        answers: r.answers || [],
+        answerTimes: r.answerTimes || [],
+        score: r.score || 0,
+      }));
   }, [incompleteRecords]);
 
   const displayRecords = showIncomplete ? mappedIncomplete : records;

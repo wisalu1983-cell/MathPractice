@@ -66,4 +66,16 @@ export async function listIncompleteHistoryRecords(userId: string) {
   return (data ?? []) as IncompleteHistoryRecord[];
 }
 
+// 删除指定的未完成记录（通过 client_id）
+export async function deleteIncompleteHistoryRecord(userId: string, clientId: string) {
+  const { error } = await supabase
+    .from('incomplete_history_records')
+    .delete()
+    .eq('user_id', userId)
+    .eq('client_id', clientId);
+
+  if (error) throw error;
+  console.log(`[deleteIncompleteHistoryRecord] 已删除云端未完成记录: ${clientId}`);
+}
+
 

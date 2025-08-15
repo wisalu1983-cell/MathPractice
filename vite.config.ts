@@ -44,7 +44,7 @@ export default defineConfig(({ command }) => {
       ],
     },
     devOptions: {
-      enabled: command === 'serve',
+      enabled: false, // 开发环境禁用 Service Worker，避免影响网络监控
       type: 'module',
     },
   });

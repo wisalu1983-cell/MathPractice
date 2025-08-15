@@ -81,12 +81,20 @@ class TestLogger {
 
   // 记录网络请求
   logNetworkRequest(request: Omit<NetworkRequest, 'timestamp'>): void {
+    console.log('[testLogger] logNetworkRequest called:', {
+      method: request.method,
+      url: request.url,
+      hasResponse: !!request.response,
+      hasError: !!request.error
+    });
+
     const networkRequest: NetworkRequest = {
       ...request,
       timestamp: Date.now(),
     };
 
     this.networkRequests.push(networkRequest);
+    console.log('[testLogger] Added to networkRequests, total count:', this.networkRequests.length);
 
     // 限制网络请求记录数量
     if (this.networkRequests.length > 100) {
@@ -110,6 +118,8 @@ class TestLogger {
         error: request.error,
       },
     });
+    
+    console.log('[testLogger] logNetworkRequest completed successfully');
   }
 
   // 记录状态变化
@@ -183,6 +193,7 @@ class TestLogger {
 
   // 获取网络请求
   getNetworkRequests(): NetworkRequest[] {
+    console.log('[testLogger] getNetworkRequests called, returning', this.networkRequests.length, 'requests');
     return [...this.networkRequests];
   }
 
@@ -256,55 +267,271 @@ class TestLogger {
   // 私有方法
 
   private setupNetworkMonitoring(): void {
-    // 监控 fetch 请求
+    // 保存原始的 fetch，防止被其他代码覆盖
     const originalFetch = window.fetch;
+    
+    // 确保只设置一次监控
+    if ((window as any).__testLoggerNetworkMonitored) {
+      console.warn('[testLogger] Network monitoring already setup');
+      return;
+    }
+    
+    (window as any).__testLoggerNetworkMonitored = true;
+    console.log('[testLogger] Setting up comprehensive network monitoring (fetch + XHR)');
+    
+    // 监控 XMLHttpRequest (Supabase 可能使用这个)
+    this.setupXHRMonitoring();
+
+    // 监控 fetch 请求
     window.fetch = async (...args) => {
       const [url, options = {}] = args;
       const startTime = Date.now();
+      const urlString = typeof url === 'string' ? url : url.toString();
+
+      console.log('[testLogger] Intercepted fetch:', {
+        url: urlString,
+        method: options.method || 'GET',
+        hasBody: !!options.body
+      });
 
       const requestData = {
         method: options.method || 'GET',
-        url: url.toString(),
-        headers: options.headers,
-        body: options.body,
+        url: urlString,
+        headers: options.headers ? this.sanitizeHeaders(options.headers) : undefined,
+        body: options.body ? this.sanitizeBody(options.body) : undefined,
       };
 
       try {
         const response = await originalFetch(...args);
         const duration = Date.now() - startTime;
 
+        console.log('[testLogger] Fetch response:', {
+          url: urlString,
+          status: response.status,
+          duration
+        });
+
         let responseData;
         try {
+          console.log('[testLogger] Processing response data for:', urlString);
           const clonedResponse = response.clone();
-          responseData = await clonedResponse.text();
-          if (responseData.startsWith('{') || responseData.startsWith('[')) {
-            responseData = JSON.parse(responseData);
+          const responseText = await clonedResponse.text();
+          console.log('[testLogger] Response text length:', responseText.length);
+          
+          if (responseText.startsWith('{') || responseText.startsWith('[')) {
+            responseData = JSON.parse(responseText);
+            // 如果是大对象，只保留部分数据避免日志过大
+            if (typeof responseData === 'object' && JSON.stringify(responseData).length > 1000) {
+              responseData = '[Large response data - truncated]';
+            }
+          } else {
+            responseData = responseText.length > 200 ? `${responseText.slice(0, 200)}...` : responseText;
           }
-        } catch {
+          console.log('[testLogger] Response data processed successfully');
+        } catch (responseError) {
+          console.error('[testLogger] Error processing response data:', responseError);
           responseData = '[Response data unavailable]';
         }
 
-        this.logNetworkRequest({
-          ...requestData,
-          response: {
-            status: response.status,
-            statusText: response.statusText,
-            data: responseData,
-          },
-          duration,
+        console.log('[testLogger] About to log network request:', {
+          url: urlString,
+          status: response.status,
+          duration
         });
+
+        try {
+          this.logNetworkRequest({
+            ...requestData,
+            response: {
+              status: response.status,
+              statusText: response.statusText,
+              data: responseData,
+            },
+            duration,
+          });
+          console.log('[testLogger] Network request logged successfully');
+        } catch (logError) {
+          console.error('[testLogger] Failed to log network request:', logError);
+        }
 
         return response;
       } catch (error) {
         const duration = Date.now() - startTime;
-        this.logNetworkRequest({
-          ...requestData,
-          duration,
-          error: error instanceof Error ? error.message : 'Unknown error',
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        console.error('[testLogger] Fetch error:', {
+          url: urlString,
+          error: errorMessage,
+          duration
         });
+
+        console.log('[testLogger] About to log network error:', {
+          url: urlString,
+          error: errorMessage,
+          duration
+        });
+
+        try {
+          this.logNetworkRequest({
+            ...requestData,
+            duration,
+            error: errorMessage,
+          });
+          console.log('[testLogger] Network error logged successfully');
+        } catch (logError) {
+          console.error('[testLogger] Failed to log network error:', logError);
+        }
+        
         throw error;
       }
     };
+  }
+
+  private setupXHRMonitoring(): void {
+    const originalXHR = window.XMLHttpRequest;
+    const self = this;
+    
+    console.log('[testLogger] Setting up XMLHttpRequest monitoring');
+    
+    window.XMLHttpRequest = function() {
+      const xhr = new originalXHR();
+      const originalOpen = xhr.open;
+      const originalSend = xhr.send;
+      let requestData: any = {};
+      
+      xhr.open = function(method: string, url: string | URL, ...args: any[]) {
+        requestData = {
+          method: method.toUpperCase(),
+          url: url.toString(),
+          startTime: Date.now()
+        };
+        console.log('[testLogger] XHR Open:', requestData);
+        return originalOpen.apply(this, [method, url, ...args]);
+      };
+      
+      xhr.send = function(body?: any) {
+        requestData.body = body;
+        console.log('[testLogger] XHR Send:', { 
+          url: requestData.url, 
+          method: requestData.method,
+          hasBody: !!body 
+        });
+        
+        // 监听响应完成
+        xhr.addEventListener('loadend', () => {
+          const duration = Date.now() - requestData.startTime;
+          console.log('[testLogger] XHR Response:', {
+            url: requestData.url,
+            status: xhr.status,
+            duration
+          });
+          
+          let responseData;
+          try {
+            if (xhr.responseType === '' || xhr.responseType === 'text') {
+              const responseText = xhr.responseText;
+              if (responseText && (responseText.startsWith('{') || responseText.startsWith('['))) {
+                responseData = JSON.parse(responseText);
+                if (typeof responseData === 'object' && JSON.stringify(responseData).length > 1000) {
+                  responseData = '[Large response data - truncated]';
+                }
+              } else {
+                responseData = responseText?.length > 200 ? `${responseText.slice(0, 200)}...` : responseText;
+              }
+            } else {
+              responseData = '[Non-text response]';
+            }
+          } catch {
+            responseData = '[Response parsing failed]';
+          }
+          
+          // 记录网络请求
+          self.logNetworkRequest({
+            method: requestData.method,
+            url: requestData.url,
+            headers: self.getXHRHeaders(xhr),
+            body: requestData.body,
+            response: {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              data: responseData,
+            },
+            duration,
+            error: xhr.status >= 400 ? `HTTP ${xhr.status}` : undefined
+          });
+        });
+        
+        return originalSend.apply(this, [body]);
+      };
+      
+      return xhr;
+    };
+  }
+
+  private getXHRHeaders(xhr: XMLHttpRequest): Record<string, string> {
+    const headers: Record<string, string> = {};
+    try {
+      const allHeaders = xhr.getAllResponseHeaders();
+      if (allHeaders) {
+        allHeaders.split('\r\n').forEach(line => {
+          const [key, value] = line.split(': ');
+          if (key && value) {
+            headers[key] = value;
+          }
+        });
+      }
+    } catch {
+      // ignore
+    }
+    return headers;
+  }
+
+  private sanitizeHeaders(headers: any): Record<string, string> {
+    if (!headers) return {};
+    
+    const result: Record<string, string> = {};
+    if (headers instanceof Headers) {
+      headers.forEach((value, key) => {
+        // 敏感信息脱敏
+        if (key.toLowerCase().includes('authorization')) {
+          result[key] = 'Bearer [REDACTED]';
+        } else {
+          result[key] = value;
+        }
+      });
+    } else if (typeof headers === 'object') {
+      Object.entries(headers).forEach(([key, value]) => {
+        if (key.toLowerCase().includes('authorization')) {
+          result[key] = 'Bearer [REDACTED]';
+        } else {
+          result[key] = String(value);
+        }
+      });
+    }
+    return result;
+  }
+
+  private sanitizeBody(body: any): any {
+    if (!body) return undefined;
+    
+    try {
+      if (typeof body === 'string') {
+        const parsed = JSON.parse(body);
+        // 移除敏感信息
+        if (parsed.password) parsed.password = '[REDACTED]';
+        return parsed;
+      } else if (body instanceof FormData) {
+        return '[FormData]';
+      } else if (body instanceof Blob) {
+        return '[Blob]';
+      } else {
+        const sanitized = { ...body };
+        if (sanitized.password) sanitized.password = '[REDACTED]';
+        return sanitized;
+      }
+    } catch {
+      return '[Unable to parse body]';
+    }
   }
 
   private setupConsoleMonitoring(): void {
