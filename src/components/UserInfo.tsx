@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, ChevronDown, Settings } from 'lucide-react';
+import { ChevronDown, Settings } from 'lucide-react';
 import { UserAction } from '../types';
 import { useOnlineAuth } from '../hooks/useOnlineAuth';
 import { getProfile, updateProfileName } from '../services/auth';
@@ -29,6 +29,7 @@ export const UserInfo: React.FC<UserInfoProps> = ({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const online = useOnlineAuth();
   const isDev = online.isDeveloper || isDeveloper;
+  const isReallyOnline = online.user && (typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   // 拉取在线昵称
   React.useEffect(() => {
@@ -60,19 +61,11 @@ export const UserInfo: React.FC<UserInfoProps> = ({
       <div className="flex items-center space-x-2">
         {/* 用户信息显示 */}
         <div className="flex items-center bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200 relative">
-          <div className="relative mr-2">
-            <User className="w-4 h-4 text-gray-600" />
-            {isDev && (
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-blue-100 p-0.5">
-                <User className="w-3 h-3 text-blue-600" />
-              </span>
-            )}
-          </div>
-          <span className="text-sm font-medium text-gray-700">
+          <div className={`w-2 h-2 rounded-full mr-2 ${
+            isReallyOnline ? 'bg-green-500' : 'bg-red-500'
+          }`}></div>
+          <span className={`text-sm font-medium text-gray-700 ${isDev ? 'underline' : ''}`}>
             {online.user ? (displayName || '未命名') : userName}
-            {online.user && (
-              <span className="ml-2 text-xs text-blue-600">({online.user.email})</span>
-            )}
           </span>
         </div>
 
@@ -101,6 +94,24 @@ export const UserInfo: React.FC<UserInfoProps> = ({
               {/* 在线账户区域 */}
               {online.user ? (
                 <>
+                  {/* 查看记录 */}
+                  <button
+                    onClick={() => handleActionClick('viewHistory')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">📊</span>
+                    查看记录
+                  </button>
+
+                  {/* 手动同步 */}
+                  <button
+                    onClick={() => { setShowDropdown(false); onSyncNow?.(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-3">🔄</span>
+                    手动同步
+                  </button>
+
                   {/* 修改昵称 */}
                   <button
                     onClick={async () => {
@@ -126,13 +137,6 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                     修改昵称
                   </button>
 
-                  <button
-                    onClick={() => { setShowDropdown(false); online.signOut(); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-3">🔐</span>
-                    退出在线登录（{online.user.email}）
-                  </button>
                   {/* 切换账号：打开登录弹窗，由用户选择最近邮箱并输入密码 */}
                   <button
                     onClick={() => { setShowDropdown(false); onShowOnlineAuth?.(); }}
@@ -141,14 +145,29 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                     <span className="mr-3">🔄</span>
                     切换账号
                   </button>
+
+                  {/* 退出登录 */}
                   <button
-                    onClick={() => { setShowDropdown(false); onSyncNow?.(); }}
+                    onClick={() => { setShowDropdown(false); online.signOut(); }}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
                   >
-                    <span className="mr-3">🔄</span>
-                    立即同步
+                    <span className="mr-3">🔐</span>
+                    退出登录
                   </button>
 
+                  {/* 测试在线数据 */}
+                  {isDev && onGenerateTestData && (
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false);
+                        onGenerateTestData();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                    >
+                      <span className="mr-3">🛠️</span>
+                      测试在线数据
+                    </button>
+                  )}
                 </>
               ) : (
                 <button
@@ -160,8 +179,8 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                 </button>
               )}
 
-              {/* 历史入口：仅当已登录在线账号或本地旧用户登录时显示；游客隐藏 */}
-              {(online.user || isLoggedIn) && (
+              {/* 历史入口：仅当本地旧用户登录时显示；游客隐藏 */}
+              {!online.user && isLoggedIn && (
                 <button
                   onClick={() => handleActionClick('viewHistory')}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
@@ -182,8 +201,8 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                 </button>
               )}
 
-              {/* 开发者工具入口：基于在线/本地任一开发者身份均可见 */}
-              {isDev && onGenerateTestData && (
+              {/* 开发者工具入口：基于本地开发者身份可见（在线用户的开发者工具已移到上面） */}
+              {!online.user && isDev && onGenerateTestData && (
                 <button
                   onClick={() => {
                     setShowDropdown(false);

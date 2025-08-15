@@ -15,6 +15,7 @@ import { TestDataGenerator } from './components/TestDataGenerator';
 import { OnlineAuthModal } from './components/OnlineAuthModal';
 import { useOnlineAuth } from './hooks/useOnlineAuth';
 import { useSyncManager } from './hooks/useSyncManager';
+import { getProfile } from './services/auth';
 
 
 const initialSession: GameSession = {
@@ -52,6 +53,7 @@ function App() {
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<HistoryRecord | null>(null);
   const [showTestGenerator, setShowTestGenerator] = useState(false);
   const [showOnlineAuth, setShowOnlineAuth] = useState(false);
+  const [onlineUserDisplayName, setOnlineUserDisplayName] = useState<string | null>(null);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
 
@@ -62,6 +64,25 @@ function App() {
       setCurrentView('home');
     }
   }, [currentView, online.user, userManager.currentUser]);
+
+  // 获取在线用户的显示名称
+  useEffect(() => {
+    let mounted = true;
+    if (!online.user) {
+      setOnlineUserDisplayName(null);
+      return;
+    }
+    getProfile(online.user.id)
+      .then(profile => {
+        if (!mounted) return;
+        setOnlineUserDisplayName(profile?.name || null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setOnlineUserDisplayName(null);
+      });
+    return () => { mounted = false; };
+  }, [online.user]);
 
   // 当游戏结束时自动保存记录
   useEffect(() => {
@@ -339,7 +360,7 @@ function App() {
           const historyUser = online.user
             ? {
                 id: online.user.id,
-                name: online.user.email || 'Online User',
+                name: onlineUserDisplayName || '未命名',
                 createdAt: Date.now(),
                 lastLoginAt: Date.now(),
               }
