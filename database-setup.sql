@@ -86,6 +86,25 @@ BEGIN
   END IF;
 END $$;
 
+-- 添加约束确保 client_id 不为空（对于新记录）
+-- 这有助于防止数据完整性问题
+DO $$
+BEGIN
+  -- 检查约束是否已存在
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.check_constraints 
+    WHERE constraint_name = 'chk_history_client_id_not_empty'
+  ) THEN
+    ALTER TABLE public.history_records 
+    ADD CONSTRAINT chk_history_client_id_not_empty 
+    CHECK (client_id IS NOT NULL AND length(trim(client_id)) > 0);
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN
+    -- 约束已存在，忽略
+    NULL;
+END $$;
+
 -- 3.1 创建 incomplete_history_records 表（未完成记录表）
 -- 存储“未完成”的练习进度，供多设备查看/统计；不做续玩逻辑
 CREATE TABLE IF NOT EXISTS public.incomplete_history_records (
@@ -134,6 +153,22 @@ BEGIN
       ON public.incomplete_history_records(user_id, client_id)
       WHERE client_id IS NOT NULL;
   END IF;
+END $$;
+
+-- 为未完成记录表添加 client_id 约束
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.check_constraints 
+    WHERE constraint_name = 'chk_incomplete_client_id_not_empty'
+  ) THEN
+    ALTER TABLE public.incomplete_history_records 
+    ADD CONSTRAINT chk_incomplete_client_id_not_empty 
+    CHECK (client_id IS NOT NULL AND length(trim(client_id)) > 0);
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN
+    NULL;
 END $$;
 
 -- 4. 创建函数：自动创建用户资料

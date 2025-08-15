@@ -286,37 +286,48 @@ export const useHistoryManager = () => {
           const local = byId.get(clientId);
           if (local) {
             if (local.userId !== userId) {
-              // 冲突：同 clientId 已存在于其它本地用户下 → 为在线账号生成别名ID
-              const aliasId = `${userId}_${clientId}`;
-              canonical = { ...canonical, id: aliasId };
-              const existsAlias = byId.has(aliasId);
-              if (!existsAlias) {
-                toAppend.push(canonical);
-                affected += 1;
-              } else {
-                // 已存在别名，检查是否需要更新
-                const aliasLocal = byId.get(aliasId)!;
-                if (
-                  aliasLocal.date !== canonical.date ||
-                  aliasLocal.score !== canonical.score ||
-                  aliasLocal.correctAnswers !== canonical.correctAnswers
-                ) {
-                  updates.set(aliasId, canonical);
-                  affected += 1;
-                }
-              }
+              // 严重冲突：同一个 client_id 属于不同用户
+              // 这表明数据完整性出现问题，需要记录并谨慎处理
+              console.warn(`[mergeServerRecords] 数据冲突: client_id ${clientId} 在本地属于用户 ${local.userId}, 但服务端属于用户 ${userId}`);
+              
+              // 采用保守策略：保留本地数据，为服务端数据生成新的ID
+              // 这样可以避免数据丢失，但需要后续人工处理
+              const conflictId = `conflict_${Date.now()}_${clientId}`;
+              canonical = { ...canonical, id: conflictId };
+              
+              // 记录冲突信息，供后续分析
+              console.error(`[mergeServerRecords] 创建冲突记录: ${conflictId}, 原始服务端数据:`, s);
+              
+              toAppend.push(canonical);
+              affected += 1;
+              
+              // TODO: 在生产环境中，应该将冲突信息发送到监控系统
+              // 用于分析数据一致性问题的根本原因
             } else {
-              // 同一账号下，如数据不同则覆盖
-              if (
+              // 同一账号下，检查数据是否需要更新
+              // 使用更全面的比较策略，包括核心数据字段
+              const needsUpdate = (
                 local.date !== canonical.date ||
                 local.score !== canonical.score ||
-                local.correctAnswers !== canonical.correctAnswers
-              ) {
-                updates.set(clientId, canonical);
-                affected += 1;
+                local.correctAnswers !== canonical.correctAnswers ||
+                local.totalProblems !== canonical.totalProblems ||
+                local.accuracy !== canonical.accuracy ||
+                local.totalTime !== canonical.totalTime
+              );
+              
+              if (needsUpdate) {
+                // 优先使用最新的数据（基于日期）
+                if (canonical.date >= local.date) {
+                  updates.set(clientId, canonical);
+                  affected += 1;
+                } else {
+                  // 本地数据更新，保留本地数据
+                  console.log(`[mergeServerRecords] 保留本地较新数据: ${clientId}`);
+                }
               }
             }
           } else {
+            // 新数据，直接添加
             toAppend.push(canonical);
             affected += 1;
           }
