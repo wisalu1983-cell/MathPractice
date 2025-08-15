@@ -10,6 +10,10 @@ import {
   logSyncFailure,
   errorLogger 
 } from '../utils/errorLogging';
+import { 
+  logSyncProcess, 
+  logStorageOperation 
+} from '../utils/testLogger';
 
 // 同步配置常量
 const SYNC_TIMEOUT_MS = 30000; // 30秒超时
@@ -79,12 +83,30 @@ export function useSyncManager(onlineUserId: string | null) {
   }, []);
 
   const enqueueRecord = useCallback((serverPayload: any) => {
-    if (!onlineUserId) return;
+    if (!onlineUserId) {
+      logSyncProcess('enqueue_skip', { reason: 'no_user_id' }, onlineUserId || undefined);
+      return;
+    }
+    
+    logSyncProcess('enqueue_start', { client_id: serverPayload.client_id }, onlineUserId);
+    
     const queue = loadOutbox(onlineUserId);
     const exists = queue.some(q => q.client_id === serverPayload.client_id);
-    if (exists) return;
+    
+    if (exists) {
+      logSyncProcess('enqueue_duplicate', { client_id: serverPayload.client_id }, onlineUserId);
+      return;
+    }
+    
     queue.push({ client_id: serverPayload.client_id, payload: serverPayload, retry: 0 });
     saveOutbox(onlineUserId, queue);
+    logStorageOperation('set', `sync_outbox_${onlineUserId}`, { count: queue.length }, onlineUserId);
+    
+    logSyncProcess('enqueue_success', { 
+      client_id: serverPayload.client_id, 
+      queue_length: queue.length,
+      payload_size: JSON.stringify(serverPayload).length 
+    }, onlineUserId);
   }, [onlineUserId]);
 
   // 用于把“本地历史”补传到当前账号：传入本地记录数组（已转服务端字段），逐条入队
@@ -103,9 +125,21 @@ export function useSyncManager(onlineUserId: string | null) {
   }, [onlineUserId]);
 
   const flush = useCallback(async () => {
-    if (!onlineUserId || syncing || !isOnline) return;
+    if (!onlineUserId || syncing || !isOnline) {
+      logSyncProcess('flush_skip', { 
+        onlineUserId: !!onlineUserId, 
+        syncing, 
+        isOnline 
+      }, onlineUserId || undefined);
+      return;
+    }
     
     const startTime = Date.now();
+    logSyncProcess('flush_start', { 
+      userId: onlineUserId, 
+      timestamp: startTime,
+      networkStatus: navigator.onLine 
+    }, onlineUserId);
     
     // 清除之前的错误状态
     setLastError(null);
@@ -114,6 +148,10 @@ export function useSyncManager(onlineUserId: string | null) {
     // 设置超时保护
     const timeoutPromise = new Promise((_, reject) => {
       syncTimeoutRef.current = setTimeout(() => {
+        logSyncProcess('flush_timeout', { 
+          userId: onlineUserId, 
+          duration: SYNC_TIMEOUT_MS 
+        }, onlineUserId);
         reject(new Error('同步操作超时'));
       }, SYNC_TIMEOUT_MS);
     });
@@ -132,6 +170,12 @@ export function useSyncManager(onlineUserId: string | null) {
         setLastSyncAt(Date.now());
         setLastError(null);
       }
+      
+      logSyncProcess('flush_success', { 
+        userId: onlineUserId, 
+        duration,
+        timestamp: Date.now() 
+      }, onlineUserId);
       
       logSyncSuccess(`同步操作成功完成`, duration, {
         userId: onlineUserId,

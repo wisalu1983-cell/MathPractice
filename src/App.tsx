@@ -13,9 +13,11 @@ import { HistoryList } from './components/HistoryList';
 import { Home } from 'lucide-react';
 import { TestDataGenerator } from './components/TestDataGenerator';
 import { OnlineAuthModal } from './components/OnlineAuthModal';
+import { TestPanel } from './components/TestPanel';
 import { useOnlineAuth } from './hooks/useOnlineAuth';
 import { useSyncManager } from './hooks/useSyncManager';
 import { getProfile } from './services/auth';
+import { testLogger, logUserAction } from './utils/testLogger';
 
 
 const initialSession: GameSession = {
@@ -53,6 +55,7 @@ function App() {
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<HistoryRecord | null>(null);
   const [showTestGenerator, setShowTestGenerator] = useState(false);
   const [showOnlineAuth, setShowOnlineAuth] = useState(false);
+  const [showTestPanel, setShowTestPanel] = useState(false);
   const [onlineUserDisplayName, setOnlineUserDisplayName] = useState<string | null>(null);
   const online = useOnlineAuth();
   const sync = useSyncManager(online.user?.id ?? null);
@@ -426,8 +429,8 @@ function App() {
               onUserAction={handleUserAction}
               onGenerateTestData={() => setShowTestGenerator(true)}
               onShowOnlineAuth={() => setShowOnlineAuth(true)}
-
               onSyncNow={() => sync.flush()}
+              onShowTestPanel={() => setShowTestPanel(true)}
             />
 
             {online.user && sync.lastSyncAt && (
@@ -486,6 +489,11 @@ function App() {
           clearUserRecords={historyManager.clearUserRecords}
           upsertIncompleteRecord={historyManager.upsertIncompleteRecord}
           clearUserIncompleteRecords={historyManager.clearUserIncompleteRecords}
+        />
+
+        <TestPanel
+          isOpen={showTestPanel}
+          onClose={() => setShowTestPanel(false)}
         />
       </div>
     </div>

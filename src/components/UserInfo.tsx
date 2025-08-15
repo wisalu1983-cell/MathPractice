@@ -11,8 +11,8 @@ interface UserInfoProps {
   onUserAction: (action: UserAction) => void;
   onGenerateTestData?: () => void;
   onShowOnlineAuth?: () => void;
-
   onSyncNow?: () => void;
+  onShowTestPanel?: () => void;
 }
 
 export const UserInfo: React.FC<UserInfoProps> = ({
@@ -22,8 +22,8 @@ export const UserInfo: React.FC<UserInfoProps> = ({
   onUserAction,
   onGenerateTestData,
   onShowOnlineAuth,
-
-  onSyncNow
+  onSyncNow,
+  onShowTestPanel
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -212,6 +212,20 @@ export const UserInfo: React.FC<UserInfoProps> = ({
                 >
                   <span className="mr-3">🛠️</span>
                   生成测试数据
+                </button>
+              )}
+
+              {/* 测试面板入口：开发者可见 */}
+              {isDev && onShowTestPanel && (
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onShowTestPanel();
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center"
+                >
+                  <span className="mr-3">🐛</span>
+                  测试面板
                 </button>
               )}
             </div>
