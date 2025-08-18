@@ -7,6 +7,30 @@
     <link rel="icon" type="image/png" href="/public/icons/pwa-192x192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#3b82f6" />
+    <script>
+      // 处理file://协议下的PWA功能
+      if (location.protocol === 'file:') {
+        document.addEventListener('DOMContentLoaded', function() {
+          // 移除manifest链接以避免CORS错误
+          const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
+          manifestLinks.forEach(link => link.remove());
+          console.log('PWA features disabled for local file access. Use a local server (npm run preview) for full PWA features.');
+        });
+      } else {
+        // 非file://协议下注册Service Worker
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js', { scope: './' })
+              .then(registration => {
+                console.log('ServiceWorker registration successful');
+              })
+              .catch(err => {
+                console.log('ServiceWorker registration failed:', err);
+              });
+          });
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

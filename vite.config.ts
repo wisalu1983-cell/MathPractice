@@ -11,6 +11,7 @@ export default defineConfig(({ command }) => {
   const pwa = VitePWA({
     registerType: 'autoUpdate',
     includeAssets: [],
+    injectRegister: false, // 禁用自动注入，我们将使用自定义的注册脚本
     manifest: {
       name: '小学数学练习',
       short_name: '数学练习',
@@ -21,13 +22,13 @@ export default defineConfig(({ command }) => {
       theme_color: '#3b82f6',
       icons: [
         {
-          src: '/icons/pwa-192x192.png',
+          src: './icons/pwa-192x192.png',
           sizes: '192x192',
           type: 'image/png',
           purpose: 'any maskable',
         },
         {
-          src: '/icons/pwa-512x512.png',
+          src: './icons/pwa-512x512.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any maskable',
