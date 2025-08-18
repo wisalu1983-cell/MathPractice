@@ -372,17 +372,66 @@ export const useHistoryManager = () => {
       setIncompleteHistoryRecords(prev => prev.filter(r => r.userId !== userId));
       return true;
     },
+    // 清理重复的未完成记录（修复去重bug后的数据清理）
+    cleanupDuplicateIncompleteRecords: (userId: string) => {
+      setIncompleteHistoryRecords(prev => {
+        console.log(`[cleanupDuplicateIncompleteRecords] 开始清理用户 ${userId} 的重复记录，当前数量: ${prev.length}`);
+        
+        // 按sessionId去重，保留最新的记录
+        const seen = new Map<string, IncompleteHistoryRecord>();
+        const cleaned = prev.filter(record => {
+          if (record.userId !== userId) return true; // 保留其他用户的记录
+          
+          const key = record.sessionId || record.id;
+          const existing = seen.get(key);
+          
+          if (!existing) {
+            seen.set(key, record);
+            return true;
+          }
+          
+          // 保留更新的记录（基于date字段）
+          if (record.date > existing.date) {
+            seen.set(key, record);
+            return true;
+          }
+          
+          return false; // 丢弃重复的旧记录
+        });
+        
+        console.log(`[cleanupDuplicateIncompleteRecords] 清理完成，从 ${prev.length} 条减少到 ${cleaned.length} 条`);
+        return cleaned;
+      });
+    },
+    
     // 合并服务端未完成记录
     mergeServerIncompleteRecords: (serverRecords: any[], userId: string) => {
       console.log(`[mergeServerIncompleteRecords] 开始合并 ${serverRecords.length} 条服务端未完成记录`);
       console.log(`[mergeServerIncompleteRecords] 服务端记录详情:`, serverRecords);
       
+      // 🔧 基于当前状态进行去重和合并，避免状态不同步
+      const current = incompleteHistoryRecords;
+      console.log(`[mergeServerIncompleteRecords] 当前本地记录数: ${current.length}`);
+      
       // 预先处理数据并计算affected
       const processedData = (() => {
-        const current = incompleteHistoryRecords;
-        console.log(`[mergeServerIncompleteRecords] 当前本地记录数: ${current.length}`);
+        // 在内存中去重，不立即更新状态
+        const seen = new Map<string, IncompleteHistoryRecord>();
+        const dedupedCurrent = current.filter(record => {
+          const key = record.sessionId || record.id;
+          if (seen.has(key)) {
+            console.log(`[mergeServerIncompleteRecords] 发现重复本地记录，跳过: ${key}`);
+            return false;
+          }
+          seen.set(key, record);
+          return true;
+        });
         
-        const byClientId = new Map(current.map(r => [r.id, r]));
+        if (dedupedCurrent.length !== current.length) {
+          console.log(`[mergeServerIncompleteRecords] 发现 ${current.length - dedupedCurrent.length} 条重复本地记录，将在合并时一并处理`);
+        }
+        
+        const byClientId = new Map(dedupedCurrent.map(r => [r.sessionId || r.id, r]));
         const updates = new Map();
         const toAppend: IncompleteHistoryRecord[] = [];
         let affected = 0;
@@ -462,25 +511,30 @@ export const useHistoryManager = () => {
         
         console.log(`[mergeServerIncompleteRecords] 待更新: ${updates.size}, 待添加: ${toAppend.length}`);
         
-        return { updates, toAppend, affected };
+        return { updates, toAppend, affected, dedupedCurrent };
       })();
       
-      const { updates, toAppend, affected } = processedData;
+      const { updates, toAppend, affected, dedupedCurrent } = processedData;
       
-      if (updates.size === 0 && toAppend.length === 0) {
+      // 检查是否有任何变化（包括去重和合并）
+      const hasDeduplication = dedupedCurrent.length !== current.length;
+      const hasMergeChanges = updates.size > 0 || toAppend.length > 0;
+      
+      if (!hasDeduplication && !hasMergeChanges) {
         console.log(`[mergeServerIncompleteRecords] 无变化，不更新状态`);
         return 0;
       }
       
-      // 只有在有变化时才更新状态
-      setIncompleteHistoryRecords(prev => {
-        const next = prev.map(r => updates.get(r.id) ?? r);
+      // 一次性更新状态：基于去重后的数据进行合并
+      setIncompleteHistoryRecords(() => {
+        const next = dedupedCurrent.map(r => updates.get(r.sessionId || r.id) ?? r);
         if (toAppend.length > 0) next.unshift(...toAppend);
-        console.log(`[mergeServerIncompleteRecords] 合并后记录数: ${next.length}`);
+        console.log(`[mergeServerIncompleteRecords] 最终状态更新: ${current.length} → ${next.length} (去重: ${hasDeduplication ? '是' : '否'}, 合并: ${affected}条)`);
         return next;
       });
       
-      console.log(`[mergeServerIncompleteRecords] 合并完成，影响 ${affected} 条记录`);
+      // 只返回新合并的服务端记录数量，去重不算作"合并"
+      console.log(`[mergeServerIncompleteRecords] 合并完成，新增 ${affected} 条服务端记录 ${hasDeduplication ? '(同时进行了去重)' : ''}`);
       return affected;
     },
     // 标记未完成记录为已同步
