@@ -137,8 +137,28 @@ export const useHistoryManager = () => {
   // 强制刷新历史记录（从localStorage重新读取）
   const refreshRecords = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
+    
+    // 🔧 额外的强制刷新机制：直接重新设置状态
+    try {
+      const storedRecords = localStorage.getItem('historyRecords');
+      if (storedRecords) {
+        const parsedRecords = JSON.parse(storedRecords);
+        console.log('[refreshRecords] 强制更新完成记录状态:', parsedRecords.length);
+        setHistoryRecords([...parsedRecords]); // 创建新数组强制更新
+      }
+
+      const storedIncomplete = localStorage.getItem('incompleteHistoryRecords');
+      if (storedIncomplete) {
+        const parsedIncomplete = JSON.parse(storedIncomplete);
+        console.log('[refreshRecords] 强制更新未完成记录状态:', parsedIncomplete.length);
+        setIncompleteHistoryRecords([...parsedIncomplete]); // 创建新数组强制更新
+      }
+    } catch (error) {
+      console.error('[refreshRecords] 强制刷新失败:', error);
+    }
+    
     return true;
-  }, []);
+  }, [setHistoryRecords, setIncompleteHistoryRecords]);
 
   // 获取用户的历史记录
   const getUserRecords = useCallback((userId: string): HistoryRecord[] => {

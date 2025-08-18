@@ -454,6 +454,15 @@ export function useSyncManager(onlineUserId: string | null) {
           新未完成记录: mergedIncompleteCount
         });
         historyManager.refreshRecords();
+        
+        // 派发全局事件通知App组件强制刷新
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('syncComplete', {
+            detail: { mergedCompletedCount, mergedIncompleteCount }
+          });
+          window.dispatchEvent(event);
+          console.log('[sync] 📢 已派发syncComplete事件');
+        }
       } else {
         console.log('[sync] ℹ️ 无新数据需要合并');
       }

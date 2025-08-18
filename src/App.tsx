@@ -53,6 +53,24 @@ function App() {
   // 直接订阅historyManager的状态，确保UI能响应数据变化
   const allHistoryRecords = historyManager.historyRecords;
   const allIncompleteRecords = historyManager.incompleteHistoryRecords;
+  
+  // 🔄 添加强制刷新机制，确保同步后UI立即更新
+  const [forceRefresh, setForceRefresh] = useState(0);
+  
+  // 监听同步状态，当同步完成时强制刷新UI
+  useEffect(() => {
+    const handleSyncComplete = () => {
+      console.log('[App] 🔄 检测到同步完成，强制刷新历史记录UI');
+      setForceRefresh(prev => prev + 1);
+      historyManager.refreshRecords();
+    };
+
+    // 监听同步事件（如果有的话）
+    if (typeof window !== 'undefined') {
+      window.addEventListener('syncComplete', handleSyncComplete);
+      return () => window.removeEventListener('syncComplete', handleSyncComplete);
+    }
+  }, [historyManager]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userAction, setUserAction] = useState<UserAction>('login');
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -516,11 +534,20 @@ function App() {
             : userManager.currentUser!;
             
           // 使用响应式状态过滤用户记录，确保数据同步后UI立即更新
+          // forceRefresh作为依赖确保强制刷新时重新计算
           const userHistoryRecords = allHistoryRecords.filter(r => r.userId === historyUser.id);
           const userIncompleteRecords = allIncompleteRecords.filter(r => r.userId === historyUser.id);
           
+          console.log(`[App] 渲染历史记录页面 (refresh: ${forceRefresh})`, {
+            总完成记录: allHistoryRecords.length,
+            用户完成记录: userHistoryRecords.length,
+            总未完成记录: allIncompleteRecords.length,
+            用户未完成记录: userIncompleteRecords.length
+          });
+          
           return (
             <HistoryList
+              key={`history-${historyUser.id}-${forceRefresh}-${userHistoryRecords.length}-${userIncompleteRecords.length}`}
               user={historyUser}
               records={userHistoryRecords}
               incompleteRecords={userIncompleteRecords}
